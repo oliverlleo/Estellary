@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroids</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="xpBarContainer">
+        <div id="xpBarFill"></div>
+        <span id="xpText">XP: 0/10</span>
+    </div>
+    <div id="levelUpScreen" class="hidden">
+        <h2>Nível Up! Escolha uma melhoria:</h2>
+        <div id="cardContainer"></div>
+    </div>
+    <div id="controls" style="position: absolute; bottom: 20px; left: 20px; color: #fff; font-size: 12px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;">
+        <strong>Controles:</strong><br>
+        WASD/Setas: Mover (W=Cima, S=Baixo, A=Esquerda, D=Direita)<br>
+        Combinações: W+D=Diagonal, etc.<br>
+        Espaço/Mouse: Atirar<br>
+        Q: Pulso Estático<br>
+        E: Teleporte de Emergência<br>
+        R: Lâmina de Energia
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+
