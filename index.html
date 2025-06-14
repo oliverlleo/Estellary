@@ -3,72 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asteroids</title>
+    <title>Estellary</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        #introScreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: black;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 1000;
-        }
-        #introVideo {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
-            z-index: -1;
-            transform: translate(-50%, -50%);
-            background-size: cover;
-        }
-        #playButton {
-            cursor: pointer;
-            width: 200px; /* Ajuste o tamanho conforme necessário */
-            height: auto;
-            position: absolute;
-            bottom: 5%; /* Posição inferior */
-            left: 50%;
-            transform: translateX(-50%);
-        }
-        .hidden {
-            display: none !important;
-        }
-    </style>
 </head>
 <body>
+    <!-- TELA DE INTRODUÇÃO -->
     <div id="introScreen">
         <video id="introVideo" src="background_video.mp4" autoplay loop muted playsinline></video>
         <img id="playButton" src="play_button.png" alt="Jogar">
     </div>
 
+    <!-- ELEMENTOS DO JOGO -->
     <canvas id="gameCanvas" class="hidden"></canvas>
+    
     <div id="xpBarContainer" class="hidden">
         <div id="xpBarFill"></div>
         <span id="xpText">XP: 0/10</span>
     </div>
+
+    <div id="healthBarContainer" class="hidden">
+        <div id="healthBarFill"></div>
+        <span id="healthText">HP: 100/100</span>
+    </div>
+
     <div id="levelUpScreen" class="hidden">
         <h2>Nível Up! Escolha uma melhoria:</h2>
         <div id="cardContainer"></div>
     </div>
-    <div id="controls" style="position: absolute; bottom: 20px; left: 20px; color: #fff; font-size: 12px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;" class="hidden">
+
+    <div id="controls" class="hidden">
         <strong>Controles:</strong><br>
-        WASD/Setas: Mover (W=Cima, S=Baixo, A=Esquerda, D=Direita)<br>
-        Combinações: W+D=Diagonal, etc.<br>
-        Espaço/Mouse: Atirar<br>
-        Q: Pulso Estático<br>
-        E: Teleporte de Emergência<br>
-        R: Lâmina de Energia
+        - WASD/Setas: Mover<br>
+        - Espaço/Mouse: Atirar<br>
+        <br>
+        <strong>Habilidades (após desbloquear):</strong><br>
+        - Q: Pulso Estático<br>
+        - E: Teleporte de Emergência<br>
+        - R: Lâmina de Energia<br>
+        - I: Manto de Invisibilidade<br>
+        - O: Sobrecarga de Escudo
     </div>
+
+    <!-- TELA DE GAME OVER (NOVA) -->
+    <div id="gameOverScreen" class="hidden">
+        <div class="gameOverContent">
+            <h2>Você é ruim, Melhore e tente de novo!</h2>
+            <button id="restartButton">Jogar Novamente</button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
