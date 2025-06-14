@@ -12,19 +12,64 @@ const levelUpScreen = document.getElementById("levelUpScreen");
 const controls = document.getElementById("controls");
 const gameOverScreen = document.getElementById("gameOverScreen");
 const restartButton = document.getElementById("restartButton");
+const bossHealthBarContainer = document.getElementById("bossHealthBarContainer");
 
-// Carregar imagens (usando os nomes de arquivos locais originais)
+// Carregar imagens
 const playerShipImage = new Image();
 playerShipImage.src = "player_ship.png";
-
 const projectileImage = new Image();
 projectileImage.src = "projectile.png";
-
 const asteroidImage = new Image();
 asteroidImage.src = "asteroid.png";
-
 const backgroundImage = new Image();
 backgroundImage.src = "background.png";
+const earthImage = new Image();
+earthImage.src = "terra.png";
+const moonImage = new Image();
+moonImage.src = "lua.png";
+const satelliteImage = new Image();
+satelliteImage.src = "satelite.png";
+const blueMeteorImage = new Image(); // Imagem para o novo meteoro
+blueMeteorImage.src = "meteoroazul.png";
+
+
+// --- NOVO: FUNÇÃO PARA CARREGAR TODAS AS IMAGENS ---
+function loadAllImages() {
+    const allImages = [playerShipImage, projectileImage, asteroidImage, backgroundImage, earthImage, moonImage, satelliteImage, blueMeteorImage];
+    return new Promise((resolve) => {
+        let loadedCount = 0;
+        const totalImages = allImages.length;
+        if (totalImages === 0) {
+            resolve();
+            return;
+        }
+        allImages.forEach(image => {
+            image.loadSuccess = true; 
+            if (image.complete) {
+                loadedCount++;
+                if (loadedCount === totalImages) {
+                    resolve();
+                }
+            } else {
+                image.onload = () => {
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        resolve();
+                    }
+                };
+                image.onerror = () => {
+                    image.loadSuccess = false;
+                    console.error(`Falha ao carregar imagem: ${image.src}`);
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        resolve();
+                    }
+                };
+            }
+        });
+    });
+}
+
 
 // Ajustar tamanho do canvas
 function resizeCanvas() {
@@ -37,13 +82,15 @@ const gameState = {
     paused: false,
     level: 1,
     xp: 0,
-    xpRequired: 10,
+    xpRequired: 5,
     sector: 1,
     time: 0,
-    score: 0
+    score: 0,
+    bossActive: false,
+    postBossMode: false,
+    bossDefeats: 0 // Contador de chefes derrotados
 };
 
-// Salva o estado inicial para poder reiniciar o jogo
 const initialPlayerStats = {
     maxHealth: 100,
     health: 100,
@@ -123,6 +170,14 @@ const asteroids = [];
 const particles = [];
 const missiles = [];
 const xpOrbs = [];
+const satellites = [];
+const blueMeteors = [];
+
+// Variáveis do Chefe e Pós-Chefe
+let boss = null;
+let lastSatelliteLaunch = 0;
+let lastBlueMeteorWaveTime = 0;
+
 
 // --- CONTROLES ---
 const keys = {};
@@ -153,24 +208,90 @@ function initGame() {
     window.addEventListener("resize", resizeCanvas);
     player.x = canvas.width / 2;
     player.y = canvas.height / 2;
-    player.invisible = false; // Garante que o jogador esteja visível no início
+    player.invisible = false; 
     for (let i = 0; i < 5; i++) createAsteroid("large");
     updateUI();
     gameLoop();
 }
 
 // --- FUNÇÕES DE CRIAÇÃO DE OBJETOS ---
-function createAsteroid(size, x, y) {
-    const asteroid = { x: x || Math.random() * canvas.width, y: y || Math.random() * canvas.height, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, angle: Math.random() * Math.PI * 2, angularVelocity: (Math.random() - 0.5) * 0.1, size: size };
+function createAsteroid(size, x, y, isFragment = false) {
+    let healthMultiplier = 1;
+    let damageMultiplier = 1;
+    let speedMultiplier = 1 + (gameState.bossDefeats * 0.10);
+
+    if (gameState.bossDefeats > 0) {
+        healthMultiplier = 1.20;
+        damageMultiplier = 1.25;
+    }
+    
+    const baseSpeed = 2;
+    const speed = baseSpeed * speedMultiplier;
+
+    const asteroid = { 
+        x: x || Math.random() * canvas.width, 
+        y: y || Math.random() * canvas.height, 
+        angle: Math.random() * Math.PI * 2, 
+        angularVelocity: (Math.random() - 0.5) * 0.1, 
+        size: size,
+        isFragment: isFragment,
+        targetSpeed: speed
+    };
+
+    if (isFragment) {
+        const angle = Math.random() * Math.PI * 2;
+        const pushSpeed = speed * 2.5;
+        asteroid.vx = Math.cos(angle) * pushSpeed;
+        asteroid.vy = Math.sin(angle) * pushSpeed;
+    } else {
+        asteroid.vx = (Math.random() - 0.5) * speed; 
+        asteroid.vy = (Math.random() - 0.5) * speed; 
+    }
+
+
     switch (size) {
-        case "small": asteroid.radius = 15; asteroid.health = 10; asteroid.damage = 15; asteroid.xpReward = 5; break;
-        case "medium": asteroid.radius = 30; asteroid.health = 40; asteroid.damage = 30; asteroid.xpReward = 20; break;
-        case "large": asteroid.radius = 50; asteroid.health = 100; asteroid.damage = 60; asteroid.xpReward = 50; break;
+        case "small": 
+            asteroid.radius = 15; 
+            asteroid.health = 10 * healthMultiplier; 
+            asteroid.damage = 15 * damageMultiplier; 
+            asteroid.xpReward = 1; 
+            break;
+        case "medium": 
+            asteroid.radius = 30; 
+            asteroid.health = 40 * healthMultiplier; 
+            asteroid.damage = 30 * damageMultiplier; 
+            asteroid.xpReward = 5; 
+            break;
+        case "large": 
+            asteroid.radius = 50; 
+            asteroid.health = 100 * healthMultiplier; 
+            asteroid.damage = 60 * damageMultiplier; 
+            asteroid.xpReward = 7; 
+            break;
     }
     asteroid.maxHealth = asteroid.health;
-    if (Math.hypot(asteroid.x - player.x, asteroid.y - player.y) < 200) { asteroid.x = player.x + (Math.random() > 0.5 ? 250 : -250); asteroid.y = player.y + (Math.random() > 0.5 ? 250 : -250); }
+    if (!isFragment && Math.hypot(asteroid.x - player.x, asteroid.y - player.y) < 200) { 
+        asteroid.x = player.x + (Math.random() > 0.5 ? 250 : -250); 
+        asteroid.y = player.y + (Math.random() > 0.5 ? 250 : -250); 
+    }
     asteroids.push(asteroid);
 }
+
+function createBlueMeteor() {
+    const radius = (15 * 0.7) * 1.35;
+    const x = Math.random() * canvas.width;
+    const y = -radius; 
+    
+    blueMeteors.push({
+        x: x,
+        y: y,
+        vx: (Math.random() - 0.5) * 2, 
+        vy: 2 + Math.random(), 
+        radius: radius,
+        damage: 20
+    });
+}
+
 
 function createBullet(x, y, angle, speed = playerStats.projectileSpeed, damage = playerStats.baseDamage, special = {}) {
     bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special });
@@ -190,8 +311,49 @@ function createParticles(x, y, count, color = "#fff") {
     }
 }
 
+function spawnBoss() {
+    gameState.bossActive = true;
+    bossHealthBarContainer.classList.remove('hidden');
+    boss = {
+        x: canvas.width / 2,
+        y: -100,
+        vx: 0, 
+        vy: 1.5, // MUDANÇA: Velocidade de entrada aumentada
+        hasEntered: false,
+        radius: 80,
+        health: 500 * (1 + gameState.bossDefeats * 0.5),
+        maxHealth: 500 * (1 + gameState.bossDefeats * 0.5),
+        damage: 100,
+        moon: {
+            angle: 0,
+            distance: 120,
+            radius: 16
+        }
+    };
+    lastSatelliteLaunch = Date.now();
+}
+
+function createSatellite(x, y) {
+    const spawnAngle = Math.random() * Math.PI * 2;
+    const spawnX = x + Math.cos(spawnAngle) * (boss.radius + 10);
+    const spawnY = y + Math.sin(spawnAngle) * (boss.radius + 10);
+
+    satellites.push({
+        x: spawnX,
+        y: spawnY,
+        vx: 0,
+        vy: 0,
+        speed: 2.2,
+        radius: 20,
+        damage: 20,
+        life: 360
+    });
+}
+
+
 // --- LÓGICA DE ATUALIZAÇÃO (UPDATE) ---
 function updatePlayer() {
+    if (player.invisible) return;
     let moveX = (keys["KeyD"] || keys["ArrowRight"] ? 1 : 0) - (keys["KeyA"] || keys["ArrowLeft"] ? 1 : 0);
     let moveY = (keys["KeyS"] || keys["ArrowDown"] ? 1 : 0) - (keys["KeyW"] || keys["ArrowUp"] ? 1 : 0);
     if (moveX !== 0 && moveY !== 0) { moveX *= 0.707; moveY *= 0.707; }
@@ -215,7 +377,7 @@ function updatePlayer() {
         if (effect.duration > 0) effect.duration--;
     });
     if (playerEffects.battleFrenzy.timer > 0) playerEffects.battleFrenzy.timer--; else playerEffects.battleFrenzy.stacks = 0;
-    if (playerEffects.invisibilityCloak.duration <= 0 && player.invisible) player.invisible = false;
+    if (playerEffects.invisibilityCloak.duration <= 0 && playerEffects.invisibilityCloak.active) playerEffects.invisibilityCloak.active = false;
     
     if (playerEffects.nanobotRegeneration && playerStats.health < playerStats.maxHealth) playerStats.health += 0.05;
     if (playerEffects.hullShield.active && playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) playerEffects.hullShield.shield += 0.1;
@@ -235,6 +397,7 @@ function updateBullets() {
 }
 
 function updateMissiles() {
+    if (gameState.bossActive) return;
     for (let i = missiles.length - 1; i >= 0; i--) {
         const m = missiles[i];
         if (!m.target || m.target.health <= 0) m.target = asteroids.reduce((closest, ast) => (Math.hypot(m.x - ast.x, m.y - ast.y) < Math.hypot(m.x - (closest?.x || Infinity), m.y - (closest?.y || Infinity)) ? ast : closest), null);
@@ -248,8 +411,21 @@ function updateMissiles() {
 }
 
 function updateAsteroids() {
+    if (asteroids.length === 0 && !gameState.bossActive && boss === null && !gameState.postBossMode) {
+        spawnBoss();
+    }
+    
     for (let i = asteroids.length - 1; i >= 0; i--) {
         const a = asteroids[i];
+
+        if (a.isFragment) {
+            a.vx *= 0.98;
+            a.vy *= 0.98;
+            if(Math.hypot(a.vx, a.vy) < a.targetSpeed) {
+                a.isFragment = false;
+            }
+        }
+
         a.x += a.vx; a.y += a.vy; a.angle += a.angularVelocity;
         if (a.x < -a.radius) a.x = canvas.width + a.radius; if (a.x > canvas.width + a.radius) a.x = -a.radius;
         if (a.y < -a.radius) a.y = canvas.height + a.radius; if (a.y > canvas.height + a.radius) a.y = -a.radius;
@@ -267,14 +443,20 @@ function updateAsteroids() {
         }
 
         for (let j = bullets.length - 1; j >= 0; j--) {
-            if (Math.hypot(bullets[j].x - a.x, bullets[j].y - a.y) < a.radius) {
-                a.health -= bullets[j].damage;
-                createParticles(bullets[j].x, bullets[j].y, 5, "#FFD700");
-                if (!bullets[j].special?.spectral) bullets.splice(j, 1);
-                if (a.health <= 0) { handleAsteroidDestruction(a, i); break; }
+            const b = bullets[j];
+            if (Math.hypot(b.x - a.x, b.y - a.y) < a.radius) {
+                a.health -= b.damage;
+                createParticles(b.x, b.y, 5, "#FFD700");
+                if (!b.special.spectral) {
+                    bullets.splice(j, 1);
+                }
+                if (a.health <= 0) { 
+                    handleAsteroidDestruction(a, i); 
+                    break;
+                }
             }
         }
-        if (a.health <= 0) continue;
+        if (i >= asteroids.length || asteroids[i].health <= 0) continue;
 
         for (let j = missiles.length - 1; j >= 0; j--) {
             if (Math.hypot(missiles[j].x - a.x, missiles[j].y - a.y) < a.radius) {
@@ -287,13 +469,146 @@ function updateAsteroids() {
     }
 }
 
+function updateBoss() {
+    if (!boss) return;
+
+    if (!boss.hasEntered) {
+        boss.y += boss.vy;
+        if (boss.y >= 150) {
+            boss.hasEntered = true;
+            boss.vx = (Math.random() > 0.5 ? 1 : -1) * 0.4;
+            boss.vy = 0; // Para de descer
+        }
+    } else {
+        boss.x += boss.vx;
+        if (boss.x - boss.radius < 0 || boss.x + boss.radius > canvas.width) {
+            boss.vx *= -1;
+        }
+    }
+
+    boss.moon.angle += 0.02;
+    const moonX = boss.x + Math.cos(boss.moon.angle) * boss.moon.distance;
+    const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
+
+    if (Date.now() - lastSatelliteLaunch > 2000) {
+        createSatellite(boss.x, boss.y);
+        createSatellite(boss.x, boss.y);
+        lastSatelliteLaunch = Date.now();
+    }
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        let hit = false;
+        
+        if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius) {
+            createParticles(b.x, b.y, 3, "#cccccc");
+            hit = true;
+        } else if (Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius) {
+            boss.health -= b.damage;
+            createParticles(b.x, b.y, 5, "#ff4500");
+            hit = true;
+        }
+
+        if (hit && !b.special.spectral) {
+            bullets.splice(i, 1);
+        }
+    }
+
+    if (!player.invisible) {
+        if (Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) {
+            takeDamage(boss.damage);
+        }
+        if (Math.hypot(player.x - moonX, player.y - moonY) < boss.moon.radius + player.size) {
+            takeDamage(50);
+        }
+    }
+
+    updateBossUI();
+    if (boss.health <= 0) {
+        createParticles(boss.x, boss.y, 300, "#ffffff");
+        gameState.bossActive = false;
+        boss = null;
+        bossHealthBarContainer.classList.add('hidden');
+        gameState.postBossMode = true;
+        gameState.bossDefeats++;
+        lastBlueMeteorWaveTime = Date.now();
+        for (let i = 0; i < 7; i++) createAsteroid("large");
+    }
+}
+
+function updateSatellites() {
+    for (let i = satellites.length - 1; i >= 0; i--) {
+        const s = satellites[i];
+        s.life--;
+
+        if (s.life > 0) {
+            const angleToPlayer = Math.atan2(player.y - s.y, player.x - s.x);
+            s.vx = Math.cos(angleToPlayer) * s.speed;
+            s.vy = Math.sin(angleToPlayer) * s.speed;
+        }
+        s.x += s.vx;
+        s.y += s.vy;
+
+
+        if (!player.invisible && Math.hypot(player.x - s.x, player.y - s.y) < s.radius + player.size) {
+            takeDamage(s.damage);
+            createParticles(s.x, s.y, 10, "#ffff00");
+            satellites.splice(i, 1);
+            continue;
+        }
+
+        if (s.life <= 0) {
+            createParticles(s.x, s.y, 20, "#cccccc");
+            satellites.splice(i, 1);
+        }
+    }
+}
+
+function updateBlueMeteors() {
+    if (gameState.postBossMode && Date.now() - lastBlueMeteorWaveTime > 13000) {
+        const probability = [3, 3, 3, 4, 4, 5, 5, 6, 7];
+        const amount = probability[Math.floor(Math.random() * probability.length)];
+        for(let i=0; i<amount; i++) {
+            createBlueMeteor();
+        }
+        lastBlueMeteorWaveTime = Date.now();
+    }
+
+    for (let i = blueMeteors.length - 1; i >= 0; i--) {
+        const bm = blueMeteors[i];
+        bm.x += bm.vx;
+        bm.y += bm.vy;
+
+        if (!player.invisible && Math.hypot(player.x - bm.x, player.y - bm.y) < bm.radius + player.size) {
+            takeDamage(bm.damage);
+            createParticles(bm.x, bm.y, 15, "#00BFFF");
+            blueMeteors.splice(i, 1);
+            continue;
+        }
+
+        if(bm.y > canvas.height + bm.radius) {
+            blueMeteors.splice(i, 1);
+        }
+    }
+}
+
+
 function handleAsteroidDestruction(asteroid, index) {
     createParticles(asteroid.x, asteroid.y, 20, "#A9A9A9");
     createXPOrb(asteroid.x, asteroid.y, asteroid.xpReward);
     gameState.score += asteroid.xpReward;
-    if (asteroid.size === "large") { createAsteroid("medium", asteroid.x, asteroid.y); createAsteroid("medium", asteroid.x, asteroid.y); }
-    else if (asteroid.size === "medium") { createAsteroid("small", asteroid.x, asteroid.y); createAsteroid("small", asteroid.x, asteroid.y); }
-    if (asteroids[index] === asteroid) asteroids.splice(index, 1);
+    
+    if (asteroid.size === "large") { 
+        createAsteroid("medium", asteroid.x, asteroid.y, true); 
+        createAsteroid("medium", asteroid.x, asteroid.y, true); 
+    } else if (asteroid.size === "medium") { 
+        createAsteroid("small", asteroid.x, asteroid.y, true);
+        createAsteroid("small", asteroid.x, asteroid.y, true);
+        createAsteroid("small", asteroid.x, asteroid.y, true);
+        createAsteroid("small", asteroid.x, asteroid.y, true);
+    }
+    
+    asteroids.splice(index, 1);
     if (playerEffects.battleFrenzy.active) { playerEffects.battleFrenzy.stacks++; playerEffects.battleFrenzy.timer = 300; }
 }
 
@@ -324,9 +639,8 @@ function updateXPOrbs() {
 
 // --- FUNÇÕES DE DESENHO (DRAW) ---
 function drawPlayer() {
-    if (player.invisible) return; // Não desenha o jogador se ele estiver invisível (morto)
+    if (player.invisible) return;
     ctx.save();
-    // A invisibilidade de power-up tem um efeito visual diferente
     ctx.globalAlpha = playerEffects.invisibilityCloak.duration > 0 ? 0.4 : 1.0;
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
@@ -342,14 +656,41 @@ function drawXPOrbs() { for (const orb of xpOrbs) { ctx.fillStyle = "#00FF00"; c
 function drawParticles() { for (const p of particles) { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2); ctx.fill(); } }
 function drawAsteroids() {
     for (const a of asteroids) {
-        ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.angle);
-        ctx.drawImage(asteroidImage, -a.radius, -a.radius, a.radius * 2, a.radius * 2);
-        ctx.restore();
+        if (a.loadSuccess !== false) ctx.drawImage(asteroidImage, a.x - a.radius, a.y - a.radius, a.radius * 2, a.radius * 2);
         const barX = a.x - a.radius, barY = a.y - a.radius - 10;
         ctx.fillStyle = "red"; ctx.fillRect(barX, barY, a.radius * 2, 5);
         ctx.fillStyle = "lime"; ctx.fillRect(barX, barY, a.radius * 2 * (a.health / a.maxHealth), 5);
     }
 }
+
+function drawBoss() {
+    if (!boss) return;
+    const moonX = boss.x + Math.cos(boss.moon.angle) * boss.moon.distance;
+    const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
+    if (earthImage.loadSuccess !== false) ctx.drawImage(earthImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
+    if (moonImage.loadSuccess !== false) ctx.drawImage(moonImage, moonX - boss.moon.radius, moonY - boss.moon.radius, boss.moon.radius * 2, boss.moon.radius * 2);
+}
+
+function drawSatellites() {
+    for (const s of satellites) {
+        if (satelliteImage.loadSuccess !== false) {
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(Math.atan2(s.vy, s.vx) + Math.PI / 2);
+            ctx.drawImage(satelliteImage, -s.radius, -s.radius, s.radius * 2, s.radius * 2);
+            ctx.restore();
+        }
+    }
+}
+
+function drawBlueMeteors() {
+    for (const bm of blueMeteors) {
+        if (blueMeteorImage.loadSuccess !== false) {
+            ctx.drawImage(blueMeteorImage, bm.x - bm.radius, bm.y - bm.radius, bm.radius * 2, bm.radius * 2);
+        }
+    }
+}
+
 
 // --- LÓGICA DO JOGO ---
 let lastFireTime = 0;
@@ -373,7 +714,7 @@ function fireBullet() {
 }
 
 function takeDamage(amount) {
-    if (playerStats.health <= 0) return; // Previne dano extra após a morte
+    if (playerStats.health <= 0) return;
 
     const finalDamage = Math.max(0, amount - playerStats.armor);
     if (playerEffects.hullShield.active && playerEffects.hullShield.shield > 0) {
@@ -394,13 +735,16 @@ function takeDamage(amount) {
 }
 
 function gainXP(amount) {
+    if (gameState.bossActive) return;
     gameState.xp += amount;
     if (gameState.xp >= gameState.xpRequired) levelUp();
     updateUI();
 }
 
 function levelUp() {
-    gameState.level++; gameState.xp -= gameState.xpRequired; gameState.xpRequired = Math.floor(gameState.xpRequired * 1.5);
+    gameState.level++; 
+    gameState.xp -= gameState.xpRequired; 
+    gameState.xpRequired = Math.floor(5 * Math.pow(gameState.level, 1.5));
     playerStats.health = playerStats.maxHealth;
     updateUI();
     showLevelUpScreen();
@@ -464,14 +808,12 @@ function applyCardEffect(card) {
 
 function gameOver() {
     gameState.paused = true;
-    player.invisible = true; // Esconde a nave
-    player.vx = 0; player.vy = 0; // Para a nave
+    player.invisible = true;
+    player.vx = 0; player.vy = 0;
 
-    // Cria a explosão
     createParticles(player.x, player.y, 150, "#ff4500");
     createParticles(player.x, player.y, 100, "#ffa500");
 
-    // Mostra a tela de game over após um breve delay
     setTimeout(() => {
         gameOverScreen.classList.remove('hidden');
     }, 1000); 
@@ -479,26 +821,29 @@ function gameOver() {
 
 function restartGame() {
     gameOverScreen.classList.add('hidden');
+    bossHealthBarContainer.classList.add('hidden');
 
-    // Reseta o estado do jogo
     gameState.paused = false;
     gameState.level = 1;
     gameState.xp = 0;
-    gameState.xpRequired = 10;
+    gameState.xpRequired = 5;
     gameState.score = 0;
+    gameState.bossActive = false;
+    gameState.postBossMode = false;
+    gameState.bossDefeats = 0;
+    boss = null;
 
-    // Reseta os status e efeitos do jogador
     playerStats = { ...initialPlayerStats };
     playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
 
-    // Limpa todos os objetos da tela
     asteroids.length = 0;
     bullets.length = 0;
     particles.length = 0;
     missiles.length = 0;
     xpOrbs.length = 0;
+    satellites.length = 0;
+    blueMeteors.length = 0;
 
-    // Reinicia o jogo
     initGame();
 }
 
@@ -514,86 +859,130 @@ function updateUI() {
     }
 }
 
+function updateBossUI() {
+    if (!boss) return;
+    const bossHealthFill = document.getElementById("bossHealthBarFill");
+    bossHealthFill.style.width = `${(boss.health / boss.maxHealth) * 100}%`;
+}
+
+
 // --- LOOP PRINCIPAL DO JOGO ---
 function gameLoop() {
     if (gameState.paused) return;
+    try {
+        updatePlayer();
+        updateBullets();
+        updateMissiles();
+        
+        if (gameState.bossActive) {
+            updateBoss();
+            updateSatellites();
+        } else {
+            updateAsteroids();
+        }
+        
+        if (gameState.postBossMode) {
+            updateBlueMeteors();
+        }
 
-    updatePlayer();
-    updateBullets();
-    updateMissiles();
-    updateAsteroids();
-    updateParticles();
-    updateXPOrbs();
+        updateParticles();
+        updateXPOrbs();
 
-    if (mouseDown || keys['Space']) {
-        if (playerEffects.plasmaCannon) chargeTime++; else fireBullet();
-    }
-    if (!mouseDown && playerEffects.plasmaCannon && chargeTime > 0) {
-        const plasmaDamage = playerStats.baseDamage * (1 + chargeTime / 60);
-        createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 0.7, plasmaDamage, { plasma: true });
-        chargeTime = 0;
+        if (mouseDown || keys['Space']) {
+            if (playerEffects.plasmaCannon) chargeTime++; else fireBullet();
+        }
+        if (!mouseDown && playerEffects.plasmaCannon && chargeTime > 0) {
+            const plasmaDamage = playerStats.baseDamage * (1 + chargeTime / 60);
+            createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 0.7, plasmaDamage, { plasma: true });
+            chargeTime = 0;
+        }
+
+        if (playerEffects.staticPulse.active && keys["KeyQ"] && playerEffects.staticPulse.cooldown === 0) {
+            for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * 3; }
+            createParticles(player.x, player.y, 50, "#FFFF00");
+            playerEffects.staticPulse.cooldown = 300 * playerStats.cooldownReduction;
+        }
+        if (playerEffects.emergencyTeleport.active && keys["KeyE"] && playerEffects.emergencyTeleport.cooldown === 0) {
+            player.x += Math.cos(player.angle) * 150; player.y += Math.sin(player.angle) * 150;
+            createParticles(player.x, player.y, 20, "#00FFFF");
+            playerEffects.emergencyTeleport.cooldown = 180 * playerStats.cooldownReduction;
+        }
+        if (playerEffects.invisibilityCloak.active && keys["KeyI"] && playerEffects.invisibilityCloak.cooldown === 0) {
+            playerEffects.invisibilityCloak.duration = 300;
+            playerEffects.invisibilityCloak.cooldown = 600 * playerStats.cooldownReduction;
+        }
+        if (playerEffects.shieldOvercharge.active && keys["KeyO"] && playerEffects.shieldOvercharge.cooldown === 0) {
+            takeDamage(playerStats.maxHealth * -0.2);
+            playerEffects.shieldOvercharge.duration = 180;
+            playerEffects.shieldOvercharge.cooldown = 600 * playerStats.cooldownReduction;
+        }
+
+        // Desenhar
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (backgroundImage.loadSuccess !== false) ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+        drawParticles();
+        drawBullets();
+        drawMissiles();
+        drawXPOrbs();
+        drawAsteroids();
+        drawBoss();
+        drawSatellites();
+        drawBlueMeteors();
+        drawPlayer();
+        
+        if (playerEffects.orbitalDrones.active) {
+            playerEffects.orbitalDrones.drones.forEach(drone => {
+                drone.angleOffset += 0.05;
+                const dX = player.x + Math.cos(drone.angleOffset) * drone.dist;
+                const dY = player.y + Math.sin(drone.angleOffset) * drone.dist;
+                ctx.fillStyle = "#8A2BE2"; ctx.beginPath(); ctx.arc(dX, dY, 5, 0, Math.PI * 2); ctx.fill();
+                if(Date.now() - drone.lastFire > 1000 / drone.fireRate) {
+                    createBullet(dX, dY, Math.atan2(dY-player.y, dX-player.x), playerStats.projectileSpeed * 0.8, playerStats.baseDamage * 0.5);
+                    drone.lastFire = Date.now();
+                }
+            });
+        }
+        
+        if (playerEffects.energyBlade && keys["KeyR"]) {
+            const bladeLength = 50, bladeWidth = 10;
+            const bladeX = player.x + Math.cos(player.angle) * (player.size + bladeLength / 2);
+            const bladeY = player.y + Math.sin(player.angle) * (player.size + bladeLength / 2);
+            ctx.save(); ctx.translate(bladeX, bladeY); ctx.rotate(player.angle);
+            ctx.fillStyle = "#FF00FF"; ctx.fillRect(-bladeLength/2, -bladeWidth/2, bladeLength, bladeWidth); ctx.restore();
+            for (let a of asteroids) if(Math.hypot(bladeX - a.x, bladeY - a.y) < a.radius + bladeLength/2) a.health -= playerStats.baseDamage * 0.2;
+        }
+    } catch (e) {
+        console.error("Erro no gameLoop:", e);
+        gameState.paused = true; // Pausa o jogo em caso de erro para evitar spam no console
     }
 
-    if (playerEffects.staticPulse.active && keys["KeyQ"] && playerEffects.staticPulse.cooldown === 0) {
-         for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * 3; }
-         createParticles(player.x, player.y, 50, "#FFFF00");
-         playerEffects.staticPulse.cooldown = 300 * playerStats.cooldownReduction;
-    }
-    if (playerEffects.emergencyTeleport.active && keys["KeyE"] && playerEffects.emergencyTeleport.cooldown === 0) {
-        player.x += Math.cos(player.angle) * 150; player.y += Math.sin(player.angle) * 150;
-        createParticles(player.x, player.y, 20, "#00FFFF");
-        playerEffects.emergencyTeleport.cooldown = 180 * playerStats.cooldownReduction;
-    }
-    if (playerEffects.invisibilityCloak.active && keys["KeyI"] && playerEffects.invisibilityCloak.cooldown === 0) {
-        playerEffects.invisibilityCloak.duration = 300;
-        playerEffects.invisibilityCloak.cooldown = 600 * playerStats.cooldownReduction;
-    }
-    if (playerEffects.shieldOvercharge.active && keys["KeyO"] && playerEffects.shieldOvercharge.cooldown === 0) {
-        takeDamage(playerStats.maxHealth * -0.2);
-        playerEffects.shieldOvercharge.duration = 180;
-        playerEffects.shieldOvercharge.cooldown = 600 * playerStats.cooldownReduction;
-    }
-
-    // Desenhar
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-    drawParticles();
-    drawBullets();
-    drawMissiles();
-    drawXPOrbs();
-    drawAsteroids();
-    drawPlayer();
-    
-    if (playerEffects.orbitalDrones.active) {
-        playerEffects.orbitalDrones.drones.forEach(drone => {
-            drone.angleOffset += 0.05;
-            const dX = player.x + Math.cos(drone.angleOffset) * drone.dist;
-            const dY = player.y + Math.sin(drone.angleOffset) * drone.dist;
-            ctx.fillStyle = "#8A2BE2"; ctx.beginPath(); ctx.arc(dX, dY, 5, 0, Math.PI * 2); ctx.fill();
-            if(Date.now() - drone.lastFire > 1000 / drone.fireRate) {
-                createBullet(dX, dY, Math.atan2(dY-player.y, dX-player.x), playerStats.projectileSpeed * 0.8, playerStats.baseDamage * 0.5);
-                drone.lastFire = Date.now();
-            }
-        });
-    }
-    
-     if (playerEffects.energyBlade && keys["KeyR"]) {
-        const bladeLength = 50, bladeWidth = 10;
-        const bladeX = player.x + Math.cos(player.angle) * (player.size + bladeLength / 2);
-        const bladeY = player.y + Math.sin(player.angle) * (player.size + bladeLength / 2);
-        ctx.save(); ctx.translate(bladeX, bladeY); ctx.rotate(player.angle);
-        ctx.fillStyle = "#FF00FF"; ctx.fillRect(-bladeLength/2, -bladeWidth/2, bladeLength, bladeWidth); ctx.restore();
-        for (let a of asteroids) if(Math.hypot(bladeX - a.x, bladeY - a.y) < a.radius + bladeLength/2) a.health -= playerStats.baseDamage * 0.2;
-    }
 
     requestAnimationFrame(gameLoop);
 }
 
+// --- MODIFICADO: JOGO SÓ INICIA APÓS CARREGAR TUDO ---
 window.addEventListener('load', () => {
-    const videoPromise = introVideo.play();
-    if (videoPromise !== undefined) {
-        videoPromise.catch(error => {
-            console.warn("Autoplay do vídeo foi bloqueado pelo navegador:", error);
-        });
+    // Tenta usar o elemento img diretamente, se não for uma imagem, procura por um span.
+    const playButtonElement = document.getElementById('playButton');
+    const isImg = playButtonElement.tagName.toLowerCase() === 'img';
+    
+    if (!isImg) {
+        // Se não for uma imagem, assume que tem um texto dentro
+        playButtonElement.textContent = "Carregando...";
     }
+    playButtonElement.disabled = true;
+
+    Promise.all([loadAllImages(), introVideo.play()]).then(() => {
+        console.log("Todos os recursos foram carregados.");
+        if (!isImg) {
+            playButtonElement.textContent = "Jogar";
+        }
+        playButtonElement.disabled = false;
+    }).catch(error => {
+        console.warn("Autoplay do vídeo foi bloqueado ou houve erro no carregamento:", error);
+        if (!isImg) {
+            playButtonElement.textContent = "Jogar";
+        }
+        playButtonElement.disabled = false;
+    });
 });

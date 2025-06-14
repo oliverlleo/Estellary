@@ -125,6 +125,39 @@ body {
     text-shadow: 1px 1px 2px #000;
 }
 
+/* ESTILOS DA BARRA DE VIDA DO CHEFE (NOVO) */
+#bossHealthBarContainer {
+    position: absolute;
+    top: 60px; /* Posição abaixo da barra de XP */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 25px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #ff4500;
+    border-radius: 10px;
+    overflow: hidden;
+    z-index: 500;
+}
+
+#bossHealthBarFill {
+    height: 100%;
+    background: linear-gradient(90deg, #d93a00, #ff4500);
+    width: 100%;
+    transition: width 0.3s ease;
+}
+
+#bossHealthText {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 1px 1px 2px #000;
+}
+
 
 #levelUpScreen {
     position: fixed;
