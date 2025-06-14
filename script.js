@@ -13,6 +13,7 @@ const controls = document.getElementById("controls");
 const gameOverScreen = document.getElementById("gameOverScreen");
 const restartButton = document.getElementById("restartButton");
 const bossHealthBarContainer = document.getElementById("bossHealthBarContainer");
+const bossWarningBorder = document.getElementById("bossWarningBorder"); // Elemento da borda
 
 // Carregar imagens
 const playerShipImage = new Image();
@@ -184,7 +185,16 @@ const keys = {};
 let mouseDown = false;
 let chargeTime = 0;
 
-document.addEventListener("keydown", (e) => { keys[e.code] = true; if (e.code === "Space") e.preventDefault(); });
+document.addEventListener("keydown", (e) => { 
+    keys[e.code] = true; 
+    if (e.code === "Space") e.preventDefault(); 
+    
+    if (e.code === 'KeyB') {
+        if (!gameState.bossActive && boss === null) {
+            asteroids.length = 0;
+        }
+    }
+});
 document.addEventListener("keyup", (e) => { keys[e.code] = false; if (e.code === "Space") e.preventDefault(); });
 document.addEventListener("mousedown", () => { mouseDown = true; });
 document.addEventListener("mouseup", () => { mouseDown = false; chargeTime = 0; });
@@ -314,11 +324,12 @@ function createParticles(x, y, count, color = "#fff") {
 function spawnBoss() {
     gameState.bossActive = true;
     bossHealthBarContainer.classList.remove('hidden');
+    bossWarningBorder.classList.remove('hidden');
     boss = {
         x: canvas.width / 2,
         y: -100,
-        vx: 0, 
-        vy: 1.5, // MUDANÇA: Velocidade de entrada aumentada
+        vx: 0,
+        vy: 1,
         hasEntered: false,
         radius: 80,
         health: 500 * (1 + gameState.bossDefeats * 0.5),
@@ -333,20 +344,20 @@ function spawnBoss() {
     lastSatelliteLaunch = Date.now();
 }
 
-function createSatellite(x, y) {
-    const spawnAngle = Math.random() * Math.PI * 2;
-    const spawnX = x + Math.cos(spawnAngle) * (boss.radius + 10);
-    const spawnY = y + Math.sin(spawnAngle) * (boss.radius + 10);
+function createSatellite(x, y, side) {
+    const spawnAngle = (Math.PI / 2) + (side * (Math.PI / 4 + (Math.random() * Math.PI / 4)));
+    const spawnX = x + Math.cos(spawnAngle) * (boss.radius);
+    const spawnY = y + Math.sin(spawnAngle) * (boss.radius);
 
     satellites.push({
         x: spawnX,
         y: spawnY,
         vx: 0,
         vy: 0,
-        speed: 2.2,
+        speed: 1.2, // MUDANÇA: Velocidade reduzida
         radius: 20,
         damage: 20,
-        life: 360
+        health: 30
     });
 }
 
@@ -369,8 +380,15 @@ function updatePlayer() {
     if (speed > maxSpeed) { player.vx = (player.vx / speed) * maxSpeed; player.vy = (player.vy / speed) * maxSpeed; }
     player.x += player.vx; player.y += player.vy;
 
-    if (player.x < 0) player.x = canvas.width; if (player.x > canvas.width) player.x = 0;
-    if (player.y < 0) player.y = canvas.height; if (player.y > canvas.height) player.y = 0;
+    if (gameState.bossActive) {
+        if (player.x - player.size < 0) player.x = player.size;
+        if (player.x + player.size > canvas.width) player.x = canvas.width - player.size;
+        if (player.y - player.size < 0) player.y = player.size;
+        if (player.y + player.size > canvas.height) player.y = canvas.height - player.size;
+    } else {
+        if (player.x < 0) player.x = canvas.width; if (player.x > canvas.width) player.x = 0;
+        if (player.y < 0) player.y = canvas.height; if (player.y > canvas.height) player.y = 0;
+    }
     
     Object.values(playerEffects).forEach(effect => {
         if (effect.cooldown > 0) effect.cooldown--;
@@ -477,7 +495,6 @@ function updateBoss() {
         if (boss.y >= 150) {
             boss.hasEntered = true;
             boss.vx = (Math.random() > 0.5 ? 1 : -1) * 0.4;
-            boss.vy = 0; // Para de descer
         }
     } else {
         boss.x += boss.vx;
@@ -491,8 +508,8 @@ function updateBoss() {
     const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
 
     if (Date.now() - lastSatelliteLaunch > 2000) {
-        createSatellite(boss.x, boss.y);
-        createSatellite(boss.x, boss.y);
+        createSatellite(boss.x, boss.y, -1);
+        createSatellite(boss.x, boss.y, 1);
         lastSatelliteLaunch = Date.now();
     }
 
@@ -509,7 +526,7 @@ function updateBoss() {
             hit = true;
         }
 
-        if (hit && !b.special.spectral) {
+        if (hit) {
             bullets.splice(i, 1);
         }
     }
@@ -529,6 +546,7 @@ function updateBoss() {
         gameState.bossActive = false;
         boss = null;
         bossHealthBarContainer.classList.add('hidden');
+        bossWarningBorder.classList.add('hidden');
         gameState.postBossMode = true;
         gameState.bossDefeats++;
         lastBlueMeteorWaveTime = Date.now();
@@ -539,27 +557,43 @@ function updateBoss() {
 function updateSatellites() {
     for (let i = satellites.length - 1; i >= 0; i--) {
         const s = satellites[i];
-        s.life--;
-
-        if (s.life > 0) {
-            const angleToPlayer = Math.atan2(player.y - s.y, player.x - s.x);
-            s.vx = Math.cos(angleToPlayer) * s.speed;
-            s.vy = Math.sin(angleToPlayer) * s.speed;
-        }
+        
+        // MUDANÇA: Satélites agora perseguem para sempre
+        const angleToPlayer = Math.atan2(player.y - s.y, player.x - s.x);
+        s.vx = Math.cos(angleToPlayer) * s.speed;
+        s.vy = Math.sin(angleToPlayer) * s.speed;
+        
         s.x += s.vx;
         s.y += s.vy;
 
-
-        if (!player.invisible && Math.hypot(player.x - s.x, player.y - s.y) < s.radius + player.size) {
-            takeDamage(s.damage);
-            createParticles(s.x, s.y, 10, "#ffff00");
-            satellites.splice(i, 1);
-            continue;
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            const b = bullets[j];
+            if (Math.hypot(b.x - s.x, b.y - s.y) < s.radius) {
+                s.health -= b.damage;
+                createParticles(b.x, b.y, 3, "#ffff00");
+                bullets.splice(j, 1);
+                
+                if (s.health <= 0) {
+                    createParticles(s.x, s.y, 15, "#ffa500");
+                    satellites.splice(i, 1);
+                    break;
+                }
+            }
         }
+        if (i >= satellites.length) continue;
 
-        if (s.life <= 0) {
-            createParticles(s.x, s.y, 20, "#cccccc");
-            satellites.splice(i, 1);
+        if (!player.invisible) {
+            const noseX = player.x + Math.cos(player.angle) * (player.size * 0.5);
+            const noseY = player.y + Math.sin(player.angle) * (player.size * 0.5);
+            const distCenter = Math.hypot(player.x - s.x, player.y - s.y);
+            const distNose = Math.hypot(noseX - s.x, noseY - s.y);
+            
+            if (distCenter < s.radius + player.size * 0.8 || distNose < s.radius + player.size * 0.5) {
+                takeDamage(s.damage);
+                createParticles(s.x, s.y, 10, "#ffff00");
+                satellites.splice(i, 1);
+                continue;
+            }
         }
     }
 }
@@ -700,7 +734,7 @@ function fireBullet() {
     if (now - lastFireTime > 1000 / fireRateWithBonus) {
         let damage = playerStats.baseDamage;
         if (Math.random() < playerStats.critChance) damage *= playerStats.critDamage;
-        const special = { spectral: playerEffects.spectralCannon && Math.random() < 0.2 };
+        const special = { spectral: playerEffects.spectralCannon };
         createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed, damage, special);
 
         if (playerEffects.bifurcatedShot) {
@@ -745,7 +779,7 @@ function levelUp() {
     gameState.level++; 
     gameState.xp -= gameState.xpRequired; 
     gameState.xpRequired = Math.floor(5 * Math.pow(gameState.level, 1.5));
-    playerStats.health = playerStats.maxHealth;
+    playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.20);
     updateUI();
     showLevelUpScreen();
 }
@@ -822,6 +856,7 @@ function gameOver() {
 function restartGame() {
     gameOverScreen.classList.add('hidden');
     bossHealthBarContainer.classList.add('hidden');
+    bossWarningBorder.classList.add('hidden');
 
     gameState.paused = false;
     gameState.level = 1;
