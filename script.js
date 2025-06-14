@@ -13,7 +13,7 @@ const controls = document.getElementById("controls");
 const gameOverScreen = document.getElementById("gameOverScreen");
 const restartButton = document.getElementById("restartButton");
 const bossHealthBarContainer = document.getElementById("bossHealthBarContainer");
-const bossWarningBorder = document.getElementById("bossWarningBorder"); // Elemento da borda
+const bossWarningBorder = document.getElementById("bossWarningBorder"); 
 
 // Carregar imagens
 const playerShipImage = new Image();
@@ -30,13 +30,22 @@ const moonImage = new Image();
 moonImage.src = "lua.png";
 const satelliteImage = new Image();
 satelliteImage.src = "satelite.png";
-const blueMeteorImage = new Image(); // Imagem para o novo meteoro
+const blueMeteorImage = new Image();
 blueMeteorImage.src = "meteoroazul.png";
+const destroyedShipImage = new Image(); // Imagem da nave destruída
+destroyedShipImage.src = "Navedestruida.png";
+const restartButtonImage = new Image(); // Imagem do botão
+restartButtonImage.src = "botaojogarnovamente.png";
 
 
-// --- NOVO: FUNÇÃO PARA CARREGAR TODAS AS IMAGENS ---
+// --- FUNÇÃO PARA CARREGAR TODAS AS IMAGENS ---
 function loadAllImages() {
-    const allImages = [playerShipImage, projectileImage, asteroidImage, backgroundImage, earthImage, moonImage, satelliteImage, blueMeteorImage];
+    const allImages = [
+        playerShipImage, projectileImage, asteroidImage, 
+        backgroundImage, earthImage, moonImage, 
+        satelliteImage, blueMeteorImage,
+        destroyedShipImage, restartButtonImage
+    ];
     return new Promise((resolve) => {
         let loadedCount = 0;
         const totalImages = allImages.length;
@@ -89,7 +98,7 @@ const gameState = {
     score: 0,
     bossActive: false,
     postBossMode: false,
-    bossDefeats: 0 // Contador de chefes derrotados
+    bossDefeats: 0
 };
 
 const initialPlayerStats = {
@@ -429,7 +438,6 @@ function updateMissiles() {
 }
 
 function updateAsteroids() {
-    // MUDANÇA: Lógica de spawn do chefe simplificada
     if (asteroids.length === 0 && !gameState.bossActive && boss === null) {
         spawnBoss();
     }
