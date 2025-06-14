@@ -32,10 +32,12 @@ const satelliteImage = new Image();
 satelliteImage.src = "satelite.png";
 const blueMeteorImage = new Image();
 blueMeteorImage.src = "meteoroazul.png";
-const destroyedShipImage = new Image(); // Imagem da nave destruída
+const destroyedShipImage = new Image();
 destroyedShipImage.src = "Navedestruida.png";
-const restartButtonImage = new Image(); // Imagem do botão
+const restartButtonImage = new Image();
 restartButtonImage.src = "botaojogarnovamente.png";
+const gameOverMessageImage = new Image(); // Imagem da mensagem de game over
+gameOverMessageImage.src = "ruim.png";
 
 
 // --- FUNÇÃO PARA CARREGAR TODAS AS IMAGENS ---
@@ -44,7 +46,8 @@ function loadAllImages() {
         playerShipImage, projectileImage, asteroidImage, 
         backgroundImage, earthImage, moonImage, 
         satelliteImage, blueMeteorImage,
-        destroyedShipImage, restartButtonImage
+        destroyedShipImage, restartButtonImage,
+        gameOverMessageImage
     ];
     return new Promise((resolve) => {
         let loadedCount = 0;
