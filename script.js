@@ -354,7 +354,7 @@ function createSatellite(x, y, side) {
         y: spawnY,
         vx: 0,
         vy: 0,
-        speed: 1.2, // MUDANÇA: Velocidade reduzida
+        speed: 1.2,
         radius: 20,
         damage: 20,
         health: 30
@@ -429,7 +429,8 @@ function updateMissiles() {
 }
 
 function updateAsteroids() {
-    if (asteroids.length === 0 && !gameState.bossActive && boss === null && !gameState.postBossMode) {
+    // MUDANÇA: Lógica de spawn do chefe simplificada
+    if (asteroids.length === 0 && !gameState.bossActive && boss === null) {
         spawnBoss();
     }
     
@@ -558,7 +559,6 @@ function updateSatellites() {
     for (let i = satellites.length - 1; i >= 0; i--) {
         const s = satellites[i];
         
-        // MUDANÇA: Satélites agora perseguem para sempre
         const angleToPlayer = Math.atan2(player.y - s.y, player.x - s.x);
         s.vx = Math.cos(angleToPlayer) * s.speed;
         s.vy = Math.sin(angleToPlayer) * s.speed;
