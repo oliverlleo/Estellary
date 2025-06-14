@@ -1,27 +1,63 @@
 // Configuração do canvas
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Elementos da tela de introdução
+const introScreen = document.getElementById("introScreen");
+const playButton = document.getElementById("playButton");
+const introVideo = document.getElementById("introVideo");
+
+// Elementos do jogo
+const xpBarContainer = document.getElementById("xpBarContainer");
+const levelUpScreen = document.getElementById("levelUpScreen");
+const controls = document.getElementById("controls");
 
 // Carregar imagens
 const playerShipImage = new Image();
-playerShipImage.src = 'player_ship.png';
+playerShipImage.src = "player_ship.png";
 
 const projectileImage = new Image();
-projectileImage.src = 'projectile.png';
+projectileImage.src = "projectile.png";
 
 const asteroidImage = new Image();
-asteroidImage.src = 'asteroid.png';
+asteroidImage.src = "asteroid.png";
 
 const backgroundImage = new Image();
-backgroundImage.src = 'background.png';
+backgroundImage.src = "background.png";
+
+// Função para carregar imagens com verificação de carregamento
+function loadImages() {
+    const images = [playerShipImage, projectileImage, asteroidImage, backgroundImage];
+    let loadedCount = 0;
+    const totalImages = images.length;
+    
+    return new Promise((resolve, reject) => {
+        images.forEach(image => {
+            if (image.complete) {
+                loadedCount++;
+                if (loadedCount === totalImages) {
+                    resolve();
+                }
+            } else {
+                image.onload = () => {
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        resolve();
+                    }
+                };
+                image.onerror = () => {
+                    reject(new Error(`Falha ao carregar imagem: ${image.src}`));
+                };
+            }
+        });
+    });
+}
 
 // Ajustar tamanho do canvas
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 }
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
 
 // Estado do jogo
 const gameState = {
@@ -56,252 +92,252 @@ const playerStats = {
 const cardDatabase = [
     // Cartas de Ataque
     {
-        id: 'bifurcated_shot',
-        name: 'Tiro Bifurcado',
-        description: 'Seus projéteis básicos se dividem em dois após uma curta distância, dobrando a área de cobertura.',
-        type: 'attack',
-        effect: 'bifurcated_shot'
+        id: "bifurcated_shot",
+        name: "Tiro Bifurcado",
+        description: "Seus projéteis básicos se dividem em dois após uma curta distância, dobrando a área de cobertura.",
+        type: "attack",
+        effect: "bifurcated_shot"
     },
     {
-        id: 'plasma_cannon',
-        name: 'Canhão de Plasma',
-        description: 'Adiciona um tiro carregado. Mantenha o botão pressionado para carregar um orbe de plasma.',
-        type: 'attack',
-        effect: 'plasma_cannon'
+        id: "plasma_cannon",
+        name: "Canhão de Plasma",
+        description: "Adiciona um tiro carregado. Mantenha o botão pressionado para carregar um orbe de plasma.",
+        type: "attack",
+        effect: "plasma_cannon"
     },
     {
-        id: 'missile_storm',
-        name: 'Tormenta de Mísseis',
-        description: 'A cada 10 tiros disparados, sua nave lança uma salva de pequenos mísseis teleguiados.',
-        type: 'attack',
-        effect: 'missile_storm'
+        id: "missile_storm",
+        name: "Tormenta de Mísseis",
+        description: "A cada 10 tiros disparados, sua nave lança uma salva de pequenos mísseis teleguiados.",
+        type: "attack",
+        effect: "missile_storm"
     },
     {
-        id: 'orbital_drones',
-        name: 'Disparos Orbitais',
-        description: 'Gera dois pequenos drones que orbitam sua nave, disparando projéteis automaticamente.',
-        type: 'attack',
-        effect: 'orbital_drones'
+        id: "orbital_drones",
+        name: "Disparos Orbitais",
+        description: "Gera dois pequenos drones que orbitam sua nave, disparando projéteis automaticamente.",
+        type: "attack",
+        effect: "orbital_drones"
     },
     {
-        id: 'energy_blade',
-        name: 'Lâmina de Energia',
-        description: 'Um ataque corpo a corpo de curto alcance. Uma lâmina de energia é projetada à frente da nave.',
-        type: 'attack',
-        effect: 'energy_blade'
+        id: "energy_blade",
+        name: "Lâmina de Energia",
+        description: "Um ataque corpo a corpo de curto alcance. Uma lâmina de energia é projetada à frente da nave.",
+        type: "attack",
+        effect: "energy_blade"
     },
     {
-        id: 'ricochet_shot',
-        name: 'Tiro Ricochete',
-        description: 'Seus projéteis ricocheteiam nas bordas da tela e em asteroides maiores.',
-        type: 'attack',
-        effect: 'ricochet_shot'
+        id: "ricochet_shot",
+        name: "Tiro Ricochete",
+        description: "Seus projéteis ricocheteiam nas bordas da tela e em asteroides maiores.",
+        type: "attack",
+        effect: "ricochet_shot"
     },
     {
-        id: 'chain_lightning',
-        name: 'Cadeia de Raios',
-        description: 'Seus tiros têm chance de gerar um raio elétrico que salta para até 3 inimigos próximos.',
-        type: 'attack',
-        effect: 'chain_lightning'
+        id: "chain_lightning",
+        name: "Cadeia de Raios",
+        description: "Seus tiros têm chance de gerar um raio elétrico que salta para até 3 inimigos próximos.",
+        type: "attack",
+        effect: "chain_lightning"
     },
     {
-        id: 'battle_frenzy',
-        name: 'Frenesi de Batalha',
-        description: 'A cada inimigo destruído, sua cadência de tiro aumenta temporariamente.',
-        type: 'attack',
-        effect: 'battle_frenzy'
+        id: "battle_frenzy",
+        name: "Frenesi de Batalha",
+        description: "A cada inimigo destruído, sua cadência de tiro aumenta temporariamente.",
+        type: "attack",
+        effect: "battle_frenzy"
     },
     {
-        id: 'static_pulse',
-        name: 'Pulso Estático',
-        description: 'Habilidade com recarga que emite uma onda de choque ao redor da nave.',
-        type: 'attack',
-        effect: 'static_pulse'
+        id: "static_pulse",
+        name: "Pulso Estático",
+        description: "Habilidade com recarga que emite uma onda de choque ao redor da nave.",
+        type: "attack",
+        effect: "static_pulse"
     },
     {
-        id: 'spectral_cannon',
-        name: 'Canhão Espectral',
-        description: 'Seus tiros têm chance de se tornarem espectrais, atravessando completamente os inimigos.',
-        type: 'attack',
-        effect: 'spectral_cannon'
+        id: "spectral_cannon",
+        name: "Canhão Espectral",
+        description: "Seus tiros têm chance de se tornarem espectrais, atravessando completamente os inimigos.",
+        type: "attack",
+        effect: "spectral_cannon"
     },
     // Cartas de Defesa
     {
-        id: 'reactive_shield',
-        name: 'Escudo Reativo',
-        description: 'Ao sofrer dano, sua nave gera um escudo temporário que absorve dano.',
-        type: 'defense',
-        effect: 'reactive_shield'
+        id: "reactive_shield",
+        name: "Escudo Reativo",
+        description: "Ao sofrer dano, sua nave gera um escudo temporário que absorve dano.",
+        type: "defense",
+        effect: "reactive_shield"
     },
     {
-        id: 'maneuver_thrusters',
-        name: 'Propulsores de Manobra',
-        description: 'Aumenta permanentemente sua velocidade de movimento e capacidade de resposta.',
-        type: 'defense',
-        effect: 'maneuver_thrusters'
+        id: "maneuver_thrusters",
+        name: "Propulsores de Manobra",
+        description: "Aumenta permanentemente sua velocidade de movimento e capacidade de resposta.",
+        type: "defense",
+        effect: "maneuver_thrusters"
     },
     {
-        id: 'adamantium_plating',
-        name: 'Placas de Adamântio',
-        description: 'Aumenta sua vida máxima e adiciona armadura, reduzindo o dano recebido.',
-        type: 'defense',
-        effect: 'adamantium_plating'
+        id: "adamantium_plating",
+        name: "Placas de Adamântio",
+        description: "Aumenta sua vida máxima e adiciona armadura, reduzindo o dano recebido.",
+        type: "defense",
+        effect: "adamantium_plating"
     },
     {
-        id: 'repulsion_field',
-        name: 'Campo de Repulsão',
-        description: 'Cria uma aura que desvia lentamente os projéteis inimigos próximos.',
-        type: 'defense',
-        effect: 'repulsion_field'
+        id: "repulsion_field",
+        name: "Campo de Repulsão",
+        description: "Cria uma aura que desvia lentamente os projéteis inimigos próximos.",
+        type: "defense",
+        effect: "repulsion_field"
     },
     {
-        id: 'energy_reconversion',
-        name: 'Reconversão de Energia',
-        description: 'Uma porcentagem do dano sofrido é convertida em energia para habilidades especiais.',
-        type: 'defense',
-        effect: 'energy_reconversion'
+        id: "energy_reconversion",
+        name: "Reconversão de Energia",
+        description: "Uma porcentagem do dano sofrido é convertida em energia para habilidades especiais.",
+        type: "defense",
+        effect: "energy_reconversion"
     },
     {
-        id: 'emergency_teleport',
-        name: 'Teleporte de Emergência',
-        description: 'Habilidade com recarga que permite teleportar para uma curta distância.',
-        type: 'defense',
-        effect: 'emergency_teleport'
+        id: "emergency_teleport",
+        name: "Teleporte de Emergência",
+        description: "Habilidade com recarga que permite teleportar para uma curta distância.",
+        type: "defense",
+        effect: "emergency_teleport"
     },
     {
-        id: 'nanobot_regeneration',
-        name: 'Regeneração de Nanorobôs',
-        description: 'Sua nave regenera lentamente vida ao longo do tempo.',
-        type: 'defense',
-        effect: 'nanobot_regeneration'
+        id: "nanobot_regeneration",
+        name: "Regeneração de Nanorobôs",
+        description: "Sua nave regenera lentamente vida ao longo do tempo.",
+        type: "defense",
+        effect: "nanobot_regeneration"
     },
     {
-        id: 'scrap_attraction',
-        name: 'Atração de Sucata',
-        description: 'Aumenta o raio de coleta de XP e outros itens soltos pelos inimigos.',
-        type: 'defense',
-        effect: 'scrap_attraction'
+        id: "scrap_attraction",
+        name: "Atração de Sucata",
+        description: "Aumenta o raio de coleta de XP e outros itens soltos pelos inimigos.",
+        type: "defense",
+        effect: "scrap_attraction"
     },
     {
-        id: 'invisibility_cloak',
-        name: 'Manto de Invisibilidade',
-        description: 'Permite ficar invisível por um curto período. Inimigos não o alvejam.',
-        type: 'defense',
-        effect: 'invisibility_cloak'
+        id: "invisibility_cloak",
+        name: "Manto de Invisibilidade",
+        description: "Permite ficar invisível por um curto período. Inimigos não o alvejam.",
+        type: "defense",
+        effect: "invisibility_cloak"
     },
     {
-        id: 'shield_overcharge',
-        name: 'Sobrecarga de Escudo',
-        description: 'Consome vida para sobrecarregar escudos, tornando-os invulneráveis temporariamente.',
-        type: 'defense',
-        effect: 'shield_overcharge'
+        id: "shield_overcharge",
+        name: "Sobrecarga de Escudo",
+        description: "Consome vida para sobrecarregar escudos, tornando-os invulneráveis temporariamente.",
+        type: "defense",
+        effect: "shield_overcharge"
     },
     // Cartas de Atributos
     {
-        id: 'fine_calibration',
-        name: 'Calibragem Fina',
-        description: 'Aumenta permanentemente a velocidade dos projéteis.',
-        type: 'attribute',
-        effect: 'fine_calibration'
+        id: "fine_calibration",
+        name: "Calibragem Fina",
+        description: "Aumenta permanentemente a velocidade dos projéteis.",
+        type: "attribute",
+        effect: "fine_calibration"
     },
     {
-        id: 'combat_focus',
-        name: 'Foco de Combate',
-        description: 'Concede um aumento na chance de acerto crítico.',
-        type: 'attribute',
-        effect: 'combat_focus'
+        id: "combat_focus",
+        name: "Foco de Combate",
+        description: "Concede um aumento na chance de acerto crítico.",
+        type: "attribute",
+        effect: "combat_focus"
     },
     {
-        id: 'improved_reactor',
-        name: 'Reator Aprimorado',
-        description: 'Aumenta o ritmo de tiro da sua arma principal.',
-        type: 'attribute',
-        effect: 'improved_reactor'
+        id: "improved_reactor",
+        name: "Reator Aprimorado",
+        description: "Aumenta o ritmo de tiro da sua arma principal.",
+        type: "attribute",
+        effect: "improved_reactor"
     },
     {
-        id: 'optimized_thrusters',
-        name: 'Propulsores Otimizados',
-        description: 'Melhora a velocidade de movimento base da sua nave.',
-        type: 'attribute',
-        effect: 'optimized_thrusters'
+        id: "optimized_thrusters",
+        name: "Propulsores Otimizados",
+        description: "Melhora a velocidade de movimento base da sua nave.",
+        type: "attribute",
+        effect: "optimized_thrusters"
     },
     {
-        id: 'expansion_modules',
-        name: 'Módulos de Expansão',
-        description: 'Aumenta o alcance dos tiros.',
-        type: 'attribute',
-        effect: 'expansion_modules'
+        id: "expansion_modules",
+        name: "Módulos de Expansão",
+        description: "Aumenta o alcance dos tiros.",
+        type: "attribute",
+        effect: "expansion_modules"
     },
     {
-        id: 'target_analyzer',
-        name: 'Analisador de Alvos',
-        description: 'Concede um bônus de dano crítico.',
-        type: 'attribute',
-        effect: 'target_analyzer'
+        id: "target_analyzer",
+        name: "Analisador de Alvos",
+        description: "Concede um bônus de dano crítico.",
+        type: "attribute",
+        effect: "target_analyzer"
     },
     {
-        id: 'magnetic_collector',
-        name: 'Coletor Magnético',
-        description: 'Aumenta o raio de coleta de XP.',
-        type: 'attribute',
-        effect: 'magnetic_collector'
+        id: "magnetic_collector",
+        name: "Coletor Magnético",
+        description: "Aumenta o raio de coleta de XP.",
+        type: "attribute",
+        effect: "magnetic_collector"
     },
     {
-        id: 'cooldown_reducer',
-        name: 'Redutor de Recarga',
-        description: 'Diminui o tempo de recarga de todas as habilidades ativas.',
-        type: 'attribute',
-        effect: 'cooldown_reducer'
+        id: "cooldown_reducer",
+        name: "Redutor de Recarga",
+        description: "Diminui o tempo de recarga de todas as habilidades ativas.",
+        type: "attribute",
+        effect: "cooldown_reducer"
     },
     {
-        id: 'flight_stabilizer',
-        name: 'Estabilizador de Voo',
-        description: 'Aumenta a velocidade de rotação e aceleração da nave.',
-        type: 'attribute',
-        effect: 'flight_stabilizer'
+        id: "flight_stabilizer",
+        name: "Estabilizador de Voo",
+        description: "Aumenta a velocidade de rotação e aceleração da nave.",
+        type: "attribute",
+        effect: "flight_stabilizer"
     },
     {
-        id: 'explorer_luck',
-        name: 'Sorte do Explorador',
-        description: 'Aumenta a chance de sorte, influenciando vários fatores do jogo.',
-        type: 'attribute',
-        effect: 'explorer_luck'
+        id: "explorer_luck",
+        name: "Sorte do Explorador",
+        description: "Aumenta a chance de sorte, influenciando vários fatores do jogo.",
+        type: "attribute",
+        effect: "explorer_luck"
     },
     // Cartas de Vida/Defesa
     {
-        id: 'reinforced_chassis',
-        name: 'Chassi Reforçado',
-        description: 'Aumenta permanentemente a vida máxima da sua nave.',
-        type: 'health',
-        effect: 'reinforced_chassis'
+        id: "reinforced_chassis",
+        name: "Chassi Reforçado",
+        description: "Aumenta permanentemente a vida máxima da sua nave.",
+        type: "health",
+        effect: "reinforced_chassis"
     },
     {
-        id: 'armor_plating',
-        name: 'Placas de Blindagem',
-        description: 'Adiciona um ponto de armadura que reduz o dano recebido.',
-        type: 'health',
-        effect: 'armor_plating'
+        id: "armor_plating",
+        name: "Placas de Blindagem",
+        description: "Adiciona um ponto de armadura que reduz o dano recebido.",
+        type: "health",
+        effect: "armor_plating"
     },
     {
-        id: 'ablative_coating',
-        name: 'Revestimento Ablativo',
-        description: 'Concede bônus de vida e armadura, mas diminui ligeiramente a velocidade.',
-        type: 'health',
-        effect: 'ablative_coating'
+        id: "ablative_coating",
+        name: "Revestimento Ablativo",
+        description: "Concede bônus de vida e armadura, mas diminui ligeiramente a velocidade.",
+        type: "health",
+        effect: "ablative_coating"
     },
     {
-        id: 'structural_integrity',
-        name: 'Integridade Estrutural',
-        description: 'Aumenta a vida máxima e melhora a eficácia dos itens de cura.',
-        type: 'health',
-        effect: 'structural_integrity'
+        id: "structural_integrity",
+        name: "Integridade Estrutural",
+        description: "Aumenta a vida máxima e melhora a eficácia dos itens de cura.",
+        type: "health",
+        effect: "structural_integrity"
     },
     {
-        id: 'hull_shield',
-        name: 'Escudo de Fuselagem',
-        description: 'Converte uma porcentagem da vida máxima em um escudo que se regenera.',
-        type: 'health',
-        effect: 'hull_shield'
+        id: "hull_shield",
+        name: "Escudo de Fuselagem",
+        description: "Converte uma porcentagem da vida máxima em um escudo que se regenera.",
+        type: "health",
+        effect: "hull_shield"
     }
 ];
 
@@ -350,41 +386,59 @@ let mouseDown = false;
 let chargeTime = 0;
 
 // Event listeners
-document.addEventListener('keydown', (e) => {
+document.addEventListener("keydown", (e) => {
     keys[e.code] = true;
-    if (e.code === 'Space') {
+    if (e.code === "Space") {
         e.preventDefault();
     }
 });
 
-document.addEventListener('keyup', (e) => {
+document.addEventListener("keyup", (e) => {
     keys[e.code] = false;
-    if (e.code === 'Space') {
+    if (e.code === "Space") {
         e.preventDefault();
     }
 });
 
-document.addEventListener('mousedown', () => {
+document.addEventListener("mousedown", () => {
     mouseDown = true;
 });
 
-document.addEventListener('mouseup', () => {
+document.addEventListener("mouseup", () => {
     mouseDown = false;
     chargeTime = 0;
 });
 
-// Inicialização
-function init() {
+// Inicialização do jogo
+function initGame() {
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
     player.x = canvas.width / 2;
     player.y = canvas.height / 2;
     
     // Criar asteroides iniciais
     for (let i = 0; i < 5; i++) {
-        createAsteroid('large');
+        createAsteroid("large");
     }
     
     updateUI();
+    gameLoop(); // Inicia o loop do jogo
 }
+
+// Função para iniciar o jogo após a tela de introdução
+playButton.addEventListener("click", () => {
+    introScreen.classList.add("hidden");
+    canvas.classList.remove("hidden");
+    xpBarContainer.classList.remove("hidden");
+    controls.classList.remove("hidden");
+    // levelUpScreen.classList.remove(
+
+
+        // levelUpScreen.classList.remove("hidden"); // Remova o comentário se quiser que a tela de level up apareça no início
+    introVideo.pause();
+    initGame();
+});
 
 // Função para criar asteroides
 function createAsteroid(size, x, y) {
@@ -400,7 +454,7 @@ function createAsteroid(size, x, y) {
     
     // Definir propriedades baseadas no tamanho
     switch (size) {
-        case 'small':
+        case "small":
             asteroid.radius = 15;
             asteroid.health = 10;
             asteroid.maxHealth = 10;
@@ -409,14 +463,14 @@ function createAsteroid(size, x, y) {
             asteroid.vx *= 2;
             asteroid.vy *= 2;
             break;
-        case 'medium':
+        case "medium":
             asteroid.radius = 30;
             asteroid.health = 40;
             asteroid.maxHealth = 40;
             asteroid.damage = 30;
             asteroid.xpReward = 20;
             break;
-        case 'large':
+        case "large":
             asteroid.radius = 50;
             asteroid.health = 100;
             asteroid.maxHealth = 100;
@@ -487,7 +541,7 @@ function createXPOrb(x, y, amount) {
 }
 
 // Função para criar partículas
-function createParticles(x, y, count, color = '#fff') {
+function createParticles(x, y, count, color = "#fff") {
     for (let i = 0; i < count; i++) {
         particles.push({
             x: x,
@@ -509,18 +563,18 @@ function updatePlayer() {
     let moveY = 0;
     
     // Movimento horizontal
-    if (keys['KeyA'] || keys['ArrowLeft']) {
+    if (keys["KeyA"] || keys["ArrowLeft"]) {
         moveX = -1;
     }
-    if (keys['KeyD'] || keys['ArrowRight']) {
+    if (keys["KeyD"] || keys["ArrowRight"]) {
         moveX = 1;
     }
     
     // Movimento vertical
-    if (keys['KeyW'] || keys['ArrowUp']) {
+    if (keys["KeyW"] || keys["ArrowUp"]) {
         moveY = -1;
     }
-    if (keys['KeyS'] || keys['ArrowDown']) {
+    if (keys["KeyS"] || keys["ArrowDown"]) {
         moveY = 1;
     }
     
@@ -566,946 +620,735 @@ function updatePlayer() {
     if (player.x > canvas.width) player.x = 0;
     if (player.y < 0) player.y = canvas.height;
     if (player.y > canvas.height) player.y = 0;
-    
-    // Tiro
-    if (keys['Space'] || mouseDown) {
-        if (playerEffects.plasmaCannon) {
-            chargeTime++;
-            if (chargeTime >= 60) { // 1 segundo de carga
-                // Tiro carregado
-                const damage = playerStats.baseDamage * 3;
-                createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 1.5, damage, { plasma: true, piercing: true });
-                chargeTime = 0;
-                mouseDown = false;
-                keys['Space'] = false;
-            }
-        } else {
-            shoot();
-        }
-    }
-    
-    // Habilidades especiais
-    if (keys['KeyQ'] && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown <= 0) {
-        activateStaticPulse();
-    }
-    
-    if (keys['KeyE'] && playerEffects.emergencyTeleport.active && playerEffects.emergencyTeleport.cooldown <= 0) {
-        activateEmergencyTeleport();
-    }
-    
-    if (keys['KeyR'] && playerEffects.energyBlade) {
-        activateEnergyBlade();
-    }
-    
-    // Regeneração de nanorobôs
-    if (playerEffects.nanobotRegeneration) {
-        if (Math.random() < 0.01) { // 1% de chance por frame
-            playerStats.health = Math.min(playerStats.health + 1, playerStats.maxHealth);
-        }
-    }
-    
-    // Atualizar cooldowns
-    updateCooldowns();
-    
-    // Atualizar efeitos temporários
-    updateTemporaryEffects();
-}
 
-let lastShotTime = 0;
-
-function shoot() {
-    const now = Date.now();
-    const fireInterval = 1000 / playerStats.fireRate;
-    
-    if (now - lastShotTime < fireInterval) return;
-    
-    lastShotTime = now;
-    
-    // Calcular dano com crítico
-    let damage = playerStats.baseDamage;
-    let isCrit = Math.random() < playerStats.critChance;
-    if (isCrit) {
-        damage *= playerStats.critDamage;
-    }
-    
-    // Tiro principal
-    const bullet = createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed, damage, { critical: isCrit });
-    
-    // Efeitos especiais
-    if (playerEffects.bifurcatedShot) {
-        // Criar tiros bifurcados após uma distância
-        setTimeout(() => {
-            if (bullets.includes(bullet)) {
-                const angle1 = bullet.vx / playerStats.projectileSpeed;
-                const angle2 = bullet.vy / playerStats.projectileSpeed;
-                const baseAngle = Math.atan2(angle2, angle1);
-                
-                createBullet(bullet.x, bullet.y, baseAngle - 0.3, playerStats.projectileSpeed, damage * 0.8);
-                createBullet(bullet.x, bullet.y, baseAngle + 0.3, playerStats.projectileSpeed, damage * 0.8);
-            }
-        }, 200);
-    }
-    
-    if (playerEffects.missileStorm.active) {
-        playerEffects.missileStorm.shotCount++;
-        if (playerEffects.missileStorm.shotCount >= 10) {
-            // Lançar mísseis
-            for (let i = 0; i < 3; i++) {
-                setTimeout(() => createMissile(player.x, player.y), i * 100);
-            }
-            playerEffects.missileStorm.shotCount = 0;
-        }
-    }
-    
+    // Atualizar efeitos
     if (playerEffects.battleFrenzy.active) {
-        // Será ativado quando destruir inimigos
-    }
-}
-
-function activateStaticPulse() {
-    playerEffects.staticPulse.cooldown = 300 / playerStats.cooldownReduction; // 5 segundos
-    
-    // Criar onda de choque
-    const pulseRadius = 150;
-    
-    // Empurrar asteroides
-    asteroids.forEach(asteroid => {
-        const dist = Math.sqrt((asteroid.x - player.x) ** 2 + (asteroid.y - player.y) ** 2);
-        if (dist < pulseRadius) {
-            const angle = Math.atan2(asteroid.y - player.y, asteroid.x - player.x);
-            const force = (pulseRadius - dist) / pulseRadius * 10;
-            asteroid.vx += Math.cos(angle) * force;
-            asteroid.vy += Math.sin(angle) * force;
-            asteroid.health -= 20; // Dano da onda
-        }
-    });
-    
-    // Efeito visual
-    createParticles(player.x, player.y, 20, '#00ffff');
-}
-
-function activateEmergencyTeleport() {
-    playerEffects.emergencyTeleport.cooldown = 600 / playerStats.cooldownReduction; // 10 segundos
-    
-    // Teleportar para frente
-    const teleportDistance = 200;
-    const newX = player.x + Math.cos(player.angle) * teleportDistance;
-    const newY = player.y + Math.sin(player.angle) * teleportDistance;
-    
-    // Wrap around screen
-    player.x = ((newX % canvas.width) + canvas.width) % canvas.width;
-    player.y = ((newY % canvas.height) + canvas.height) % canvas.height;
-    
-    // Efeito visual
-    createParticles(player.x, player.y, 15, '#ff00ff');
-}
-
-function activateEnergyBlade() {
-    const bladeLength = 80;
-    const bladeWidth = 30;
-    
-    // Detectar inimigos na frente da nave
-    asteroids.forEach((asteroid, index) => {
-        const dx = asteroid.x - player.x;
-        const dy = asteroid.y - player.y;
-        const dist = Math.sqrt(dx ** 2 + dy ** 2);
-        
-        if (dist < bladeLength) {
-            const angleToAsteroid = Math.atan2(dy, dx);
-            const angleDiff = Math.abs(angleToAsteroid - player.angle);
-            
-            if (angleDiff < 0.5 || angleDiff > Math.PI * 2 - 0.5) {
-                // Asteroide está na frente da lâmina
-                asteroid.health -= playerStats.baseDamage * 2;
-                createParticles(asteroid.x, asteroid.y, 10, '#ffff00');
-                
-                if (asteroid.health <= 0) {
-                    destroyAsteroid(index);
-                }
-            }
-        }
-    });
-    
-    // Efeito visual da lâmina
-    createParticles(
-        player.x + Math.cos(player.angle) * bladeLength / 2,
-        player.y + Math.sin(player.angle) * bladeLength / 2,
-        8,
-        '#ffff00'
-    );
-}
-
-function updateCooldowns() {
-    if (playerEffects.staticPulse.cooldown > 0) {
-        playerEffects.staticPulse.cooldown--;
-    }
-    if (playerEffects.emergencyTeleport.cooldown > 0) {
-        playerEffects.emergencyTeleport.cooldown--;
-    }
-    if (playerEffects.reactiveShield.cooldown > 0) {
-        playerEffects.reactiveShield.cooldown--;
-    }
-    if (playerEffects.invisibilityCloak.cooldown > 0) {
-        playerEffects.invisibilityCloak.cooldown--;
-    }
-    if (playerEffects.shieldOvercharge.cooldown > 0) {
-        playerEffects.shieldOvercharge.cooldown--;
-    }
-}
-
-function updateTemporaryEffects() {
-    // Battle Frenzy
-    if (playerEffects.battleFrenzy.timer > 0) {
         playerEffects.battleFrenzy.timer--;
         if (playerEffects.battleFrenzy.timer <= 0) {
+            playerEffects.battleFrenzy.active = false;
             playerEffects.battleFrenzy.stacks = 0;
         }
     }
-    
-    // Invisibility Cloak
-    if (playerEffects.invisibilityCloak.duration > 0) {
+
+    if (playerEffects.staticPulse.cooldown > 0) {
+        playerEffects.staticPulse.cooldown--;
+    }
+
+    if (playerEffects.reactiveShield.cooldown > 0) {
+        playerEffects.reactiveShield.cooldown--;
+    }
+
+    if (playerEffects.emergencyTeleport.cooldown > 0) {
+        playerEffects.emergencyTeleport.cooldown--;
+    }
+
+    if (playerEffects.invisibilityCloak.active) {
         playerEffects.invisibilityCloak.duration--;
-        player.invisible = true;
         if (playerEffects.invisibilityCloak.duration <= 0) {
+            playerEffects.invisibilityCloak.active = false;
             player.invisible = false;
         }
     }
-}
 
-// Atualização dos projéteis
-function updateBullets() {
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        const bullet = bullets[i];
-        
-        bullet.x += bullet.vx;
-        bullet.y += bullet.vy;
-        bullet.life--;
-        
-        // Ricochet nas bordas
-        if (playerEffects.ricochetShot) {
-            if (bullet.x <= 0 || bullet.x >= canvas.width) {
-                bullet.vx = -bullet.vx;
-                bullet.x = Math.max(0, Math.min(canvas.width, bullet.x));
+    if (playerEffects.shieldOvercharge.cooldown > 0) {
+        playerEffects.shieldOvercharge.cooldown--;
+    }
+
+    if (playerEffects.nanobotRegeneration) {
+        if (playerStats.health < playerStats.maxHealth) {
+            playerStats.health += 0.05; // Regenera 3 de vida por segundo (0.05 * 60fps)
+            if (playerStats.health > playerStats.maxHealth) {
+                playerStats.health = playerStats.maxHealth;
             }
-            if (bullet.y <= 0 || bullet.y >= canvas.height) {
-                bullet.vy = -bullet.vy;
-                bullet.y = Math.max(0, Math.min(canvas.height, bullet.y));
-            }
-        } else {
-            // Wrap around screen
-            if (bullet.x < 0) bullet.x = canvas.width;
-            if (bullet.x > canvas.width) bullet.x = 0;
-            if (bullet.y < 0) bullet.y = canvas.height;
-            if (bullet.y > canvas.height) bullet.y = 0;
         }
-        
-        // Remover se vida acabou
-        if (bullet.life <= 0) {
-            bullets.splice(i, 1);
-            continue;
-        }
-        
-        // Colisão com asteroides
-        for (let j = asteroids.length - 1; j >= 0; j--) {
-            const asteroid = asteroids[j];
-            const dist = Math.sqrt((bullet.x - asteroid.x) ** 2 + (bullet.y - asteroid.y) ** 2);
-            
-            if (dist < asteroid.radius) {
-                // Aplicar dano
-                asteroid.health -= bullet.damage;
-                
-                // Efeitos especiais
-                if (playerEffects.chainLightning && Math.random() < 0.3) {
-                    createChainLightning(asteroid.x, asteroid.y, bullet.damage * 0.5);
-                }
-                
-                // Ricochet em asteroides grandes
-                if (playerEffects.ricochetShot && asteroid.size === 'large') {
-                    const angle = Math.atan2(bullet.vy, bullet.vx);
-                    const newAngle = angle + Math.PI + (Math.random() - 0.5) * 0.5;
-                    bullet.vx = Math.cos(newAngle) * playerStats.projectileSpeed;
-                    bullet.vy = Math.sin(newAngle) * playerStats.projectileSpeed;
-                } else if (!bullet.special.piercing && !bullet.special.spectral) {
-                    bullets.splice(i, 1);
-                }
-                
-                // Verificar se asteroide foi destruído
-                if (asteroid.health <= 0) {
-                    destroyAsteroid(j);
-                    
-                    // Battle Frenzy
-                    if (playerEffects.battleFrenzy.active) {
-                        playerEffects.battleFrenzy.stacks = Math.min(playerEffects.battleFrenzy.stacks + 1, 10);
-                        playerEffects.battleFrenzy.timer = 300; // 5 segundos
-                    }
-                }
-                
-                createParticles(bullet.x, bullet.y, 5, bullet.special.critical ? '#ffff00' : '#fff');
-                break;
+    }
+
+    if (playerEffects.hullShield.active) {
+        if (playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) {
+            playerEffects.hullShield.shield += 0.1; // Regenera escudo
+            if (playerEffects.hullShield.shield > playerEffects.hullShield.maxShield) {
+                playerEffects.hullShield.shield = playerEffects.hullShield.maxShield;
             }
         }
     }
 }
 
-function createChainLightning(x, y, damage) {
-    const targets = [];
-    
-    // Encontrar até 3 alvos próximos
-    asteroids.forEach(asteroid => {
-        const dist = Math.sqrt((asteroid.x - x) ** 2 + (asteroid.y - y) ** 2);
-        if (dist < 200) {
-            targets.push({ asteroid, dist });
+// Atualização de projéteis
+function updateBullets() {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        bullet.x += bullet.vx;
+        bullet.y += bullet.vy;
+        bullet.life--;
+
+        // Ricochete
+        if (playerEffects.ricochetShot) {
+            if (bullet.x < 0 || bullet.x > canvas.width) {
+                bullet.vx *= -1;
+            }
+            if (bullet.y < 0 || bullet.y > canvas.height) {
+                bullet.vy *= -1;
+            }
         }
-    });
-    
-    targets.sort((a, b) => a.dist - b.dist);
-    targets.splice(3); // Máximo 3 alvos
-    
-    targets.forEach((target, index) => {
-        target.asteroid.health -= damage * Math.pow(0.7, index); // Dano reduzido a cada salto
-        createParticles(target.asteroid.x, target.asteroid.y, 8, '#00ffff');
-    });
+
+        if (bullet.life <= 0) {
+            bullets.splice(i, 1);
+        }
+    }
 }
 
-// Atualização dos mísseis
+// Atualização de mísseis
 function updateMissiles() {
     for (let i = missiles.length - 1; i >= 0; i--) {
         const missile = missiles[i];
-        
-        // Encontrar alvo mais próximo
         if (!missile.target || missile.target.health <= 0) {
-            let closestDist = Infinity;
-            missile.target = null;
-            
-            asteroids.forEach(asteroid => {
-                const dist = Math.sqrt((missile.x - asteroid.x) ** 2 + (missile.y - asteroid.y) ** 2);
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    missile.target = asteroid;
-                }
-            });
+            // Encontrar novo alvo
+            missile.target = findClosestAsteroid(missile.x, missile.y);
         }
-        
-        // Mover em direção ao alvo
+
         if (missile.target) {
-            const dx = missile.target.x - missile.x;
-            const dy = missile.target.y - missile.y;
-            const dist = Math.sqrt(dx ** 2 + dy ** 2);
-            
-            if (dist > 0) {
-                missile.angle = Math.atan2(dy, dx);
-                missile.vx = Math.cos(missile.angle) * missile.speed;
-                missile.vy = Math.sin(missile.angle) * missile.speed;
-            }
-            
-            // Colisão com alvo
-            if (dist < missile.target.radius) {
-                missile.target.health -= missile.damage;
-                createParticles(missile.x, missile.y, 10, '#ff6600');
-                
-                if (missile.target.health <= 0) {
-                    const targetIndex = asteroids.indexOf(missile.target);
-                    if (targetIndex !== -1) {
-                        destroyAsteroid(targetIndex);
-                    }
-                }
-                
-                missiles.splice(i, 1);
-                continue;
-            }
+            const angleToTarget = Math.atan2(missile.target.y - missile.y, missile.target.x - missile.x);
+            missile.vx = Math.cos(angleToTarget) * missile.speed;
+            missile.vy = Math.sin(angleToTarget) * missile.speed;
+            missile.angle = angleToTarget;
         }
-        
+
         missile.x += missile.vx;
         missile.y += missile.vy;
         missile.life--;
-        
+
         if (missile.life <= 0) {
             missiles.splice(i, 1);
         }
     }
 }
 
-// Atualização dos asteroides
+// Atualização de asteroides
 function updateAsteroids() {
-    asteroids.forEach(asteroid => {
+    for (let i = asteroids.length - 1; i >= 0; i--) {
+        const asteroid = asteroids[i];
         asteroid.x += asteroid.vx;
         asteroid.y += asteroid.vy;
         asteroid.angle += asteroid.angularVelocity;
-        
+
         // Wrap around screen
         if (asteroid.x < -asteroid.radius) asteroid.x = canvas.width + asteroid.radius;
         if (asteroid.x > canvas.width + asteroid.radius) asteroid.x = -asteroid.radius;
         if (asteroid.y < -asteroid.radius) asteroid.y = canvas.height + asteroid.radius;
         if (asteroid.y > canvas.height + asteroid.radius) asteroid.y = -asteroid.radius;
-        
-        // Colisão com jogador
-        if (!player.invisible) {
-            const dist = Math.sqrt((asteroid.x - player.x) ** 2 + (asteroid.y - player.y) ** 2);
-            if (dist < asteroid.radius + player.size) {
-                takeDamage(asteroid.damage);
-                createParticles(player.x, player.y, 15, '#ff0000');
-            }
-        }
-    });
-}
 
-// Atualização dos orbes de XP
-function updateXPOrbs() {
-    for (let i = xpOrbs.length - 1; i >= 0; i--) {
-        const orb = xpOrbs[i];
-        
-        orb.x += orb.vx;
-        orb.y += orb.vy;
-        orb.vx *= 0.98;
-        orb.vy *= 0.98;
-        orb.life--;
-        
-        // Atração magnética
-        const dist = Math.sqrt((orb.x - player.x) ** 2 + (orb.y - player.y) ** 2);
-        if (dist < playerStats.xpCollectionRadius) {
-            const angle = Math.atan2(player.y - orb.y, player.x - orb.x);
-            const force = (playerStats.xpCollectionRadius - dist) / playerStats.xpCollectionRadius * 0.5;
-            orb.vx += Math.cos(angle) * force;
-            orb.vy += Math.sin(angle) * force;
-            
-            // Coleta
-            if (dist < 20) {
-                gainXP(orb.amount);
-                xpOrbs.splice(i, 1);
-                continue;
+        // Colisão com projéteis
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            const bullet = bullets[j];
+            const dist = Math.sqrt((bullet.x - asteroid.x) ** 2 + (bullet.y - asteroid.y) ** 2);
+            if (dist < asteroid.radius) {
+                asteroid.health -= bullet.damage;
+                createParticles(bullet.x, bullet.y, 5, "#FFD700"); // Partículas de impacto
+
+                if (!bullet.special.spectral) {
+                    bullets.splice(j, 1);
+                }
+
+                if (asteroid.health <= 0) {
+                    handleAsteroidDestruction(asteroid, i);
+                    break;
+                }
             }
         }
-        
-        // Remover se vida acabou
-        if (orb.life <= 0) {
-            xpOrbs.splice(i, 1);
+
+        // Colisão com mísseis
+        for (let j = missiles.length - 1; j >= 0; j--) {
+            const missile = missiles[j];
+            const dist = Math.sqrt((missile.x - asteroid.x) ** 2 + (missile.y - asteroid.y) ** 2);
+            if (dist < asteroid.radius) {
+                asteroid.health -= missile.damage;
+                createParticles(missile.x, missile.y, 10, "#FF4500"); // Partículas de explosão de míssil
+                missiles.splice(j, 1);
+
+                if (asteroid.health <= 0) {
+                    handleAsteroidDestruction(asteroid, i);
+                    break;
+                }
+            }
+        }
+
+        // Colisão com o jogador
+        const distToPlayer = Math.sqrt((player.x - asteroid.x) ** 2 + (player.y - asteroid.y) ** 2);
+        if (distToPlayer < asteroid.radius + player.size && !player.invisible) {
+            if (playerEffects.shieldOvercharge.active) {
+                // Ignora dano se escudo sobrecarregado
+            } else if (playerEffects.reactiveShield.active) {
+                playerEffects.reactiveShield.shieldAmount -= asteroid.damage;
+                if (playerEffects.reactiveShield.shieldAmount <= 0) {
+                    playerEffects.reactiveShield.active = false;
+                }
+            } else if (playerEffects.hullShield.active) {
+                playerEffects.hullShield.shield -= asteroid.damage;
+                if (playerEffects.hullShield.shield <= 0) {
+                    playerEffects.hullShield.active = false;
+                    playerStats.health += playerEffects.hullShield.shield; // Dano excedente vai para a vida
+                    playerEffects.hullShield.shield = 0;
+                }
+            } else {
+                takeDamage(asteroid.damage);
+            }
+            handleAsteroidDestruction(asteroid, i);
+            break;
         }
     }
 }
 
-// Atualização das partículas
+function handleAsteroidDestruction(asteroid, index) {
+    createParticles(asteroid.x, asteroid.y, 20, "#A9A9A9"); // Partículas de asteroide destruído
+    createXPOrb(asteroid.x, asteroid.y, asteroid.xpReward);
+    gameState.score += asteroid.xpReward; // Adiciona pontuação
+
+    if (asteroid.size === "large") {
+        createAsteroid("medium", asteroid.x + 20, asteroid.y);
+        createAsteroid("medium", asteroid.x - 20, asteroid.y);
+    } else if (asteroid.size === "medium") {
+        createAsteroid("small", asteroid.x + 10, asteroid.y);
+        createAsteroid("small", asteroid.x - 10, asteroid.y);
+    }
+    asteroids.splice(index, 1);
+
+    // Battle Frenzy
+    if (playerEffects.battleFrenzy.active) {
+        playerEffects.battleFrenzy.stacks++;
+        playerStats.fireRate = 2 * (1 + playerEffects.battleFrenzy.stacks * 0.1); // Aumenta fireRate
+        playerEffects.battleFrenzy.timer = 300; // Reseta timer (5 segundos)
+    }
+}
+
+// Atualização de partículas
 function updateParticles() {
     for (let i = particles.length - 1; i >= 0; i--) {
-        const particle = particles[i];
-        
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        particle.vx *= 0.98;
-        particle.vy *= 0.98;
-        particle.life--;
-        
-        if (particle.life <= 0) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        if (p.life <= 0) {
             particles.splice(i, 1);
         }
     }
 }
 
-// Função para destruir asteroide
-function destroyAsteroid(index) {
-    const asteroid = asteroids[index];
-    
-    // Criar orbe de XP
-    createXPOrb(asteroid.x, asteroid.y, asteroid.xpReward);
-    
-    // Criar partículas
-    createParticles(asteroid.x, asteroid.y, 15, '#888');
-    
-    // Dividir asteroide se for grande ou médio
-    if (asteroid.size === 'large') {
-        for (let i = 0; i < 2; i++) {
-            createAsteroid('medium', 
-                asteroid.x + (Math.random() - 0.5) * 50,
-                asteroid.y + (Math.random() - 0.5) * 50
-            );
-        }
-    } else if (asteroid.size === 'medium') {
-        for (let i = 0; i < 2; i++) {
-            createAsteroid('small',
-                asteroid.x + (Math.random() - 0.5) * 30,
-                asteroid.y + (Math.random() - 0.5) * 30
-            );
-        }
-    }
-    
-    asteroids.splice(index, 1);
-    gameState.score += asteroid.xpReward * 10;
-    
-    // Spawn novos asteroides se necessário
-    if (asteroids.length < 3) {
-        createAsteroid('large');
-    }
-}
+// Atualização de orbes de XP
+function updateXPOrbs() {
+    for (let i = xpOrbs.length - 1; i >= 0; i--) {
+        const orb = xpOrbs[i];
+        orb.life--;
 
-// Função para receber dano
-function takeDamage(damage) {
-    // Aplicar armadura
-    const finalDamage = Math.max(1, damage - playerStats.armor);
-    
-    // Escudo reativo
-    if (playerEffects.reactiveShield.active && playerEffects.reactiveShield.cooldown <= 0) {
-        playerEffects.reactiveShield.shieldAmount = 30;
-        playerEffects.reactiveShield.cooldown = 600; // 10 segundos
-    }
-    
-    // Aplicar dano ao escudo primeiro
-    if (playerEffects.reactiveShield.shieldAmount > 0) {
-        const shieldDamage = Math.min(finalDamage, playerEffects.reactiveShield.shieldAmount);
-        playerEffects.reactiveShield.shieldAmount -= shieldDamage;
-        damage -= shieldDamage;
-    }
-    
-    // Escudo de fuselagem
-    if (playerEffects.hullShield.shield > 0 && damage > 0) {
-        const hullDamage = Math.min(damage, playerEffects.hullShield.shield);
-        playerEffects.hullShield.shield -= hullDamage;
-        damage -= hullDamage;
-    }
-    
-    // Aplicar dano restante à vida
-    if (damage > 0) {
-        playerStats.health -= damage;
-        
-        // Reconversão de energia
-        if (playerEffects.energyReconversion) {
-            const energyGain = damage * 0.2;
-            // Implementar sistema de energia se necessário
+        // Movimento em direção ao jogador se estiver dentro do raio de coleta
+        const dist = Math.sqrt((player.x - orb.x) ** 2 + (player.y - orb.y) ** 2);
+        if (dist < playerStats.xpCollectionRadius) {
+            const angleToPlayer = Math.atan2(player.y - orb.y, player.x - orb.x);
+            orb.vx = Math.cos(angleToPlayer) * 5; // Velocidade de atração
+            orb.vy = Math.sin(angleToPlayer) * 5;
+        } else {
+            // Movimento aleatório inicial
+            orb.vx *= 0.98;
+            orb.vy *= 0.98;
+        }
+
+        orb.x += orb.vx;
+        orb.y += orb.vy;
+
+        // Coleta
+        if (dist < 10 && !orb.collected) {
+            gainXP(orb.amount);
+            orb.collected = true;
+            xpOrbs.splice(i, 1);
+        } else if (orb.life <= 0) {
+            xpOrbs.splice(i, 1);
         }
     }
-    
-    // Verificar morte
-    if (playerStats.health <= 0) {
-        gameOver();
+}
+
+// Funções de desenho
+function drawPlayer() {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+    ctx.drawImage(playerShipImage, -player.size, -player.size, player.size * 2, player.size * 2);
+    ctx.restore();
+
+    // Desenhar escudo reativo
+    if (playerEffects.reactiveShield.active) {
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.size * 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.5)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
     }
-    
-    updateUI();
-}
 
-// Função para ganhar XP
-function gainXP(amount) {
-    gameState.xp += amount;
-    
-    if (gameState.xp >= gameState.xpRequired) {
-        levelUp();
+    // Desenhar escudo de fuselagem
+    if (playerEffects.hullShield.active) {
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.size * 1.2, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(135, 206, 250, 0.7)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
     }
-    
-    updateUI();
 }
 
-// Função para subir de nível
-function levelUp() {
-    gameState.level++;
-    gameState.xp -= gameState.xpRequired;
-    gameState.xpRequired = Math.floor(gameState.xpRequired * 1.1); // 10% a mais
-    
-    // Pausar jogo e mostrar cartas
-    gameState.paused = true;
-    showCardSelection();
-}
-
-// Função para mostrar seleção de cartas
-function showCardSelection() {
-    const levelUpScreen = document.getElementById('levelUpScreen');
-    const cardContainer = document.getElementById('cardContainer');
-    
-    // Limpar cartas anteriores
-    cardContainer.innerHTML = '';
-    
-    // Selecionar 3 cartas aleatórias
-    const availableCards = cardDatabase.filter(card => !hasCard(card.id));
-    const selectedCards = [];
-    
-    for (let i = 0; i < 3 && availableCards.length > 0; i++) {
-        const randomIndex = Math.floor(Math.random() * availableCards.length);
-        selectedCards.push(availableCards.splice(randomIndex, 1)[0]);
+function drawBullets() {
+    for (const bullet of bullets) {
+        ctx.drawImage(projectileImage, bullet.x - 5, bullet.y - 5, 10, 10);
     }
-    
-    // Criar elementos das cartas
-    selectedCards.forEach(card => {
-        const cardElement = document.createElement('div');
-        cardElement.className = 'card';
-        cardElement.innerHTML = `
-            <div class="card-title">${card.name}</div>
-            <div class="card-description">${card.description}</div>
-        `;
-        
-        cardElement.addEventListener('click', () => {
-            selectCard(card);
-            levelUpScreen.classList.add('hidden');
-            gameState.paused = false;
-        });
-        
-        cardContainer.appendChild(cardElement);
-    });
-    
-    levelUpScreen.classList.remove('hidden');
 }
 
-// Função para verificar se já tem uma carta
-function hasCard(cardId) {
-    // Implementar lógica para verificar cartas já obtidas
-    return false; // Por simplicidade, permitir cartas duplicadas por enquanto
-}
-
-// Função para selecionar carta
-function selectCard(card) {
-    applyCardEffect(card);
-}
-
-// Função para aplicar efeito da carta
-function applyCardEffect(card) {
-    switch (card.effect) {
-        case 'bifurcated_shot':
-            playerEffects.bifurcatedShot = true;
-            break;
-        case 'plasma_cannon':
-            playerEffects.plasmaCannon = true;
-            break;
-        case 'missile_storm':
-            playerEffects.missileStorm.active = true;
-            break;
-        case 'orbital_drones':
-            playerEffects.orbitalDrones.active = true;
-            // Implementar drones orbitais
-            break;
-        case 'energy_blade':
-            playerEffects.energyBlade = true;
-            break;
-        case 'ricochet_shot':
-            playerEffects.ricochetShot = true;
-            break;
-        case 'chain_lightning':
-            playerEffects.chainLightning = true;
-            break;
-        case 'battle_frenzy':
-            playerEffects.battleFrenzy.active = true;
-            break;
-        case 'static_pulse':
-            playerEffects.staticPulse.active = true;
-            break;
-        case 'spectral_cannon':
-            playerEffects.spectralCannon = true;
-            break;
-        case 'reactive_shield':
-            playerEffects.reactiveShield.active = true;
-            break;
-        case 'maneuver_thrusters':
-            playerStats.moveSpeed += 1;
-            playerStats.rotationSpeed += 1;
-            break;
-        case 'adamantium_plating':
-            playerStats.maxHealth += 30;
-            playerStats.health += 30;
-            playerStats.armor += 2;
-            break;
-        case 'repulsion_field':
-            playerEffects.repulsionField = true;
-            break;
-        case 'energy_reconversion':
-            playerEffects.energyReconversion = true;
-            break;
-        case 'emergency_teleport':
-            playerEffects.emergencyTeleport.active = true;
-            break;
-        case 'nanobot_regeneration':
-            playerEffects.nanobotRegeneration = true;
-            break;
-        case 'scrap_attraction':
-            playerStats.xpCollectionRadius += 30;
-            break;
-        case 'invisibility_cloak':
-            playerEffects.invisibilityCloak.active = true;
-            break;
-        case 'shield_overcharge':
-            playerEffects.shieldOvercharge.active = true;
-            break;
-        case 'fine_calibration':
-            playerStats.projectileSpeed += 2;
-            break;
-        case 'combat_focus':
-            playerStats.critChance += 0.1;
-            break;
-        case 'improved_reactor':
-            playerStats.fireRate += 0.5;
-            break;
-        case 'optimized_thrusters':
-            playerStats.moveSpeed += 1;
-            break;
-        case 'expansion_modules':
-            playerStats.projectileRange += 200;
-            break;
-        case 'target_analyzer':
-            playerStats.critDamage += 0.25;
-            break;
-        case 'magnetic_collector':
-            playerStats.xpCollectionRadius += 20;
-            break;
-        case 'cooldown_reducer':
-            playerStats.cooldownReduction += 0.2;
-            break;
-        case 'flight_stabilizer':
-            playerStats.rotationSpeed += 2;
-            break;
-        case 'explorer_luck':
-            playerStats.luck += 0.1;
-            break;
-        case 'reinforced_chassis':
-            playerStats.maxHealth += 25;
-            playerStats.health += 25;
-            break;
-        case 'armor_plating':
-            playerStats.armor += 3;
-            break;
-        case 'ablative_coating':
-            playerStats.maxHealth += 20;
-            playerStats.health += 20;
-            playerStats.armor += 2;
-            playerStats.moveSpeed -= 0.5;
-            break;
-        case 'structural_integrity':
-            playerStats.maxHealth += 30;
-            playerStats.health += 30;
-            // Implementar melhoria de cura
-            break;
-        case 'hull_shield':
-            playerEffects.hullShield.active = true;
-            playerEffects.hullShield.maxShield = playerStats.maxHealth * 0.2;
-            playerEffects.hullShield.shield = playerEffects.hullShield.maxShield;
-            break;
-    }
-    
-    updateUI();
-}
-
-// Função para atualizar UI
-function updateUI() {
-    // Barra de XP
-    const xpBarFill = document.getElementById('xpBarFill');
-    const xpText = document.getElementById('xpText');
-    
-    const xpPercentage = (gameState.xp / gameState.xpRequired) * 100;
-    xpBarFill.style.width = `${xpPercentage}%`;
-    xpText.textContent = `Nível ${gameState.level} - XP: ${gameState.xp}/${gameState.xpRequired}`;
-    
-    // Barra de vida
-    let healthBar = document.querySelector('.health-bar');
-    if (!healthBar) {
-        healthBar = document.createElement('div');
-        healthBar.className = 'health-bar';
-        healthBar.innerHTML = `
-            <div class="health-fill"></div>
-            <div class="health-text"></div>
-        `;
-        document.body.appendChild(healthBar);
-    }
-    
-    const healthFill = healthBar.querySelector('.health-fill');
-    const healthText = healthBar.querySelector('.health-text');
-    
-    const healthPercentage = (playerStats.health / playerStats.maxHealth) * 100;
-    healthFill.style.width = `${healthPercentage}%`;
-    healthText.textContent = `${Math.ceil(playerStats.health)}/${playerStats.maxHealth}`;
-    
-    // Stats display
-    let statsDisplay = document.querySelector('.stats-display');
-    if (!statsDisplay) {
-        statsDisplay = document.createElement('div');
-        statsDisplay.className = 'stats-display';
-        document.body.appendChild(statsDisplay);
-    }
-    
-    statsDisplay.innerHTML = `
-        Setor: ${gameState.sector}<br>
-        Score: ${gameState.score}<br>
-        Dano: ${playerStats.baseDamage}<br>
-        Armadura: ${playerStats.armor}<br>
-        Velocidade: ${playerStats.moveSpeed.toFixed(1)}<br>
-        Taxa de Tiro: ${playerStats.fireRate.toFixed(1)}/s
-    `;
-}
-
-// Função de game over
-function gameOver() {
-    alert(`Game Over! Score: ${gameState.score}`);
-    location.reload();
-}
-
-// Função de renderização
-function render() {
-    // Desenhar background
-    if (backgroundImage.complete) {
-        // Calcular escala para cobrir toda a tela mantendo proporção
-        const scaleX = canvas.width / backgroundImage.width;
-        const scaleY = canvas.height / backgroundImage.height;
-        const scale = Math.max(scaleX, scaleY);
-        
-        const scaledWidth = backgroundImage.width * scale;
-        const scaledHeight = backgroundImage.height * scale;
-        
-        const offsetX = (canvas.width - scaledWidth) / 2;
-        const offsetY = (canvas.height - scaledHeight) / 2;
-        
-        ctx.drawImage(backgroundImage, offsetX, offsetY, scaledWidth, scaledHeight);
-    } else {
-        // Fallback para fundo preto se a imagem não carregou
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Desenhar estrelas de fundo como fallback
-        ctx.fillStyle = '#fff';
-        for (let i = 0; i < 100; i++) {
-            const x = (i * 37) % canvas.width;
-            const y = (i * 73) % canvas.height;
-            ctx.fillRect(x, y, 1, 1);
-        }
-    }
-    
-    // Desenhar jogador
-    if (!player.invisible || Math.floor(Date.now() / 100) % 2) { // Piscar quando invisível
-        ctx.save();
-        ctx.translate(player.x, player.y);
-        ctx.rotate(player.angle);
-        
-        // Desenhar imagem da nave
-        const shipWidth = 30;
-        const shipHeight = 30;
-        ctx.drawImage(playerShipImage, -shipWidth / 2, -shipHeight / 2, shipWidth, shipHeight);
-        
-        // Propulsão
-        if (player.thrust) {
-            ctx.strokeStyle = '#ff6600';
-            ctx.beginPath();
-            ctx.moveTo(-5, 0);
-            ctx.lineTo(-15, 0);
-            ctx.stroke();
-        }
-        
-        ctx.restore();
-    }
-    
-    // Desenhar asteroides
-    asteroids.forEach(asteroid => {
+function drawAsteroids() {
+    for (const asteroid of asteroids) {
         ctx.save();
         ctx.translate(asteroid.x, asteroid.y);
         ctx.rotate(asteroid.angle);
-        
-        // Desenhar imagem do asteroide
-        const asteroidSize = asteroid.radius * 2;
-        ctx.drawImage(asteroidImage, -asteroidSize / 2, -asteroidSize / 2, asteroidSize, asteroidSize);
-        
-        // Barra de vida do asteroide
-        if (asteroid.health < asteroid.maxHealth) {
-            const barWidth = asteroid.radius * 1.5;
-            const barHeight = 4;
-            const healthPercent = asteroid.health / asteroid.maxHealth;
-            
-            ctx.fillStyle = '#333';
-            ctx.fillRect(-barWidth/2, -asteroid.radius - 15, barWidth, barHeight);
-            
-            ctx.fillStyle = healthPercent > 0.5 ? '#0f0' : healthPercent > 0.25 ? '#ff0' : '#f00';
-            ctx.fillRect(-barWidth/2, -asteroid.radius - 15, barWidth * healthPercent, barHeight);
-        }
-        
+        ctx.drawImage(asteroidImage, -asteroid.radius, -asteroid.radius, asteroid.radius * 2, asteroid.radius * 2);
         ctx.restore();
-    });
-    
-    // Desenhar projéteis
-    bullets.forEach(bullet => {
-        ctx.save();
-        ctx.translate(bullet.x, bullet.y);
-        ctx.rotate(Math.atan2(bullet.vy, bullet.vx));
-        
-        const projWidth = 20;
-        const projHeight = 5;
-        ctx.drawImage(projectileImage, -projWidth / 2, -projHeight / 2, projWidth, projHeight);
-        
-        ctx.restore();
-    });
-    
-    // Desenhar mísseis
-    missiles.forEach(missile => {
+
+        // Desenhar barra de vida do asteroide
+        const healthBarWidth = asteroid.radius * 2;
+        const healthBarHeight = 5;
+        const healthBarX = asteroid.x - asteroid.radius;
+        const healthBarY = asteroid.y - asteroid.radius - 10;
+        ctx.fillStyle = "red";
+        ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+        ctx.fillStyle = "lime";
+        ctx.fillRect(healthBarX, healthBarY, healthBarWidth * (asteroid.health / asteroid.maxHealth), healthBarHeight);
+    }
+}
+
+function drawParticles() {
+    for (const p of particles) {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawMissiles() {
+    for (const missile of missiles) {
         ctx.save();
         ctx.translate(missile.x, missile.y);
         ctx.rotate(missile.angle);
-        
-        ctx.fillStyle = '#ff6600';
-        ctx.fillRect(-8, -2, 16, 4);
-        ctx.fillStyle = '#ffff00';
-        ctx.fillRect(-8, -1, 6, 2);
-        
+        ctx.fillStyle = "orange";
+        ctx.fillRect(-5, -2, 10, 4);
         ctx.restore();
-    });
-    
-    // Desenhar orbes de XP
-    xpOrbs.forEach(orb => {
-        const alpha = orb.life / 600;
-        ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+    }
+}
+
+function drawXPOrbs() {
+    for (const orb of xpOrbs) {
+        ctx.fillStyle = "#00FF00"; // Verde
         ctx.beginPath();
         ctx.arc(orb.x, orb.y, 5, 0, Math.PI * 2);
         ctx.fill();
-        
-        // Brilho
-        ctx.fillStyle = `rgba(255, 255, 0, ${alpha * 0.5})`;
-        ctx.beginPath();
-        ctx.arc(orb.x, orb.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-    });
-    
-    // Desenhar partículas
-    particles.forEach(particle => {
-        const alpha = particle.life / particle.maxLife;
-        ctx.fillStyle = particle.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size * alpha, 0, Math.PI * 2);
-        ctx.fill();
-    });
-    
-    // Desenhar escudos
-    if (playerEffects.reactiveShield.shieldAmount > 0) {
-        ctx.strokeStyle = `rgba(0, 255, 255, 0.7)`;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.size + 10, 0, Math.PI * 2);
-        ctx.stroke();
     }
-    
-    if (playerEffects.hullShield.shield > 0) {
-        const shieldPercent = playerEffects.hullShield.shield / playerEffects.hullShield.maxShield;
-        ctx.strokeStyle = `rgba(0, 100, 255, ${shieldPercent * 0.8})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.size + 15, 0, Math.PI * 2);
-        ctx.stroke();
+}
+
+// Funções de jogo
+let lastFireTime = 0;
+function fireBullet() {
+    const now = Date.now();
+    const fireDelay = 1000 / playerStats.fireRate;
+
+    if (now - lastFireTime > fireDelay) {
+        createBullet(player.x, player.y, player.angle);
+        lastFireTime = now;
+
+        // Missile Storm
+        if (playerEffects.missileStorm.active) {
+            playerEffects.missileStorm.shotCount++;
+            if (playerEffects.missileStorm.shotCount >= 10) {
+                createMissile(player.x, player.y);
+                playerEffects.missileStorm.shotCount = 0;
+            }
+        }
     }
+}
+
+function takeDamage(amount) {
+    playerStats.health -= amount;
+    if (playerStats.health <= 0) {
+        playerStats.health = 0;
+        gameOver();
+    }
+    updateUI();
+}
+
+function gainXP(amount) {
+    gameState.xp += amount;
+    if (gameState.xp >= gameState.xpRequired) {
+        levelUp();
+    }
+    updateUI();
+}
+
+function levelUp() {
+    gameState.level++;
+    gameState.xp -= gameState.xpRequired;
+    gameState.xpRequired = Math.floor(gameState.xpRequired * 1.5); // Aumenta XP necessário
+    playerStats.health = playerStats.maxHealth; // Cura total
+    updateUI();
+    showLevelUpScreen();
+}
+
+function showLevelUpScreen() {
+    gameState.paused = true;
+    levelUpScreen.classList.remove("hidden");
+    const cardContainer = document.getElementById("cardContainer");
+    cardContainer.innerHTML = ""; // Limpa cartas anteriores
+
+    const availableCards = getRandomCards(3); // Pega 3 cartas aleatórias
+
+    availableCards.forEach(card => {
+        const cardElement = document.createElement("div");
+        cardElement.classList.add("card");
+        cardElement.innerHTML = `
+            <h3>${card.name}</h3>
+            <p>${card.description}</p>
+            <button data-card-id="${card.id}">Escolher</button>
+        `;
+        cardContainer.appendChild(cardElement);
+
+        cardElement.querySelector("button").addEventListener("click", () => {
+            applyCardEffect(card);
+            levelUpScreen.classList.add("hidden");
+            gameState.paused = false;
+            gameLoop(); // Retoma o loop do jogo
+        });
+    });
+}
+
+function getRandomCards(count) {
+    const shuffled = cardDatabase.sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+}
+
+function applyCardEffect(card) {
+    // Aplica os efeitos da carta nos playerStats ou playerEffects
+    switch (card.id) {
+        case "bifurcated_shot":
+            playerEffects.bifurcatedShot = true;
+            break;
+        case "plasma_cannon":
+            playerEffects.plasmaCannon = true;
+            break;
+        case "missile_storm":
+            playerEffects.missileStorm.active = true;
+            break;
+        case "orbital_drones":
+            playerEffects.orbitalDrones.active = true;
+            // Criar drones
+            for (let i = 0; i < 2; i++) {
+                playerEffects.orbitalDrones.drones.push({
+                    angleOffset: i * Math.PI, // Um de cada lado
+                    distance: 50,
+                    fireRate: 1 // Tiro por segundo
+                });
+            }
+            break;
+        case "energy_blade":
+            playerEffects.energyBlade = true;
+            break;
+        case "ricochet_shot":
+            playerEffects.ricochetShot = true;
+            break;
+        case "chain_lightning":
+            playerEffects.chainLightning = true;
+            break;
+        case "battle_frenzy":
+            playerEffects.battleFrenzy.active = true;
+            break;
+        case "static_pulse":
+            playerEffects.staticPulse.active = true;
+            playerEffects.staticPulse.cooldown = 0; // Pronto para usar
+            break;
+        case "spectral_cannon":
+            playerEffects.spectralCannon = true;
+            break;
+        case "reactive_shield":
+            playerEffects.reactiveShield.active = true;
+            playerEffects.reactiveShield.cooldown = 0;
+            playerEffects.reactiveShield.shieldAmount = 50; // Escudo inicial
+            break;
+        case "maneuver_thrusters":
+            playerStats.moveSpeed *= 1.2; // Aumenta 20%
+            break;
+        case "adamantium_plating":
+            playerStats.maxHealth += 50;
+            playerStats.health += 50;
+            playerStats.armor += 5;
+            break;
+        case "repulsion_field":
+            playerEffects.repulsionField = true;
+            break;
+        case "energy_reconversion":
+            // Implementar lógica de reconversão de energia
+            break;
+        case "emergency_teleport":
+            playerEffects.emergencyTeleport.active = true;
+            playerEffects.emergencyTeleport.cooldown = 0;
+            break;
+        case "nanobot_regeneration":
+            playerEffects.nanobotRegeneration = true;
+            break;
+        case "scrap_attraction":
+            playerStats.xpCollectionRadius *= 1.5;
+            break;
+        case "invisibility_cloak":
+            playerEffects.invisibilityCloak.active = true;
+            playerEffects.invisibilityCloak.cooldown = 0;
+            break;
+        case "shield_overcharge":
+            playerEffects.shieldOvercharge.active = true;
+            playerEffects.shieldOvercharge.cooldown = 0;
+            break;
+        case "fine_calibration":
+            playerStats.projectileSpeed *= 1.2;
+            break;
+        case "combat_focus":
+            playerStats.critChance += 0.05;
+            break;
+        case "improved_reactor":
+            playerStats.fireRate *= 1.2;
+            break;
+        case "optimized_thrusters":
+            playerStats.moveSpeed *= 1.1;
+            break;
+        case "expansion_modules":
+            playerStats.projectileRange *= 1.2;
+            break;
+        case "target_analyzer":
+            playerStats.critDamage *= 1.2;
+            break;
+        case "magnetic_collector":
+            playerStats.xpCollectionRadius *= 1.2;
+            break;
+        case "cooldown_reducer":
+            playerStats.cooldownReduction *= 0.9; // Reduz em 10%
+            break;
+        case "flight_stabilizer":
+            playerStats.rotationSpeed *= 1.2;
+            // Aceleração também pode ser ajustada aqui se houver uma variável para isso
+            break;
+        case "explorer_luck":
+            playerStats.luck += 0.01; // Aumenta a sorte em 1%
+            break;
+        case "reinforced_chassis":
+            playerStats.maxHealth += 25;
+            playerStats.health += 25;
+            break;
+        case "armor_plating":
+            playerStats.armor += 1;
+            break;
+        case "ablative_coating":
+            playerStats.maxHealth += 30;
+            playerStats.health += 30;
+            playerStats.armor += 2;
+            playerStats.moveSpeed *= 0.9; // Reduz velocidade em 10%
+            break;
+        case "structural_integrity":
+            playerStats.maxHealth += 40;
+            // Implementar eficácia de cura
+            break;
+        case "hull_shield":
+            playerEffects.hullShield.active = true;
+            playerEffects.hullShield.maxShield = playerStats.maxHealth * 0.3; // 30% da vida máxima
+            playerEffects.hullShield.shield = playerEffects.hullShield.maxShield;
+            break;
+    }
+    updateUI();
+}
+
+function gameOver() {
+    gameState.paused = true;
+    alert("Game Over! Pontuação: " + gameState.score);
+    // Reiniciar jogo ou mostrar tela de game over
+    location.reload(); // Por enquanto, recarrega a página
+}
+
+function updateUI() {
+    document.getElementById("xpText").textContent = `XP: ${gameState.xp}/${gameState.xpRequired} (Nível ${gameState.level})`;
+    const xpBarFill = document.getElementById("xpBarFill");
+    xpBarFill.style.width = `${(gameState.xp / gameState.xpRequired) * 100}%`;
 }
 
 // Loop principal do jogo
 function gameLoop() {
-    if (!gameState.paused) {
-        updatePlayer();
-        updateBullets();
-        updateMissiles();
-        updateAsteroids();
-        updateXPOrbs();
-        updateParticles();
-        
-        gameState.time++;
-        
-        // Aumentar dificuldade ao longo do tempo
-        if (gameState.time % 1800 === 0) { // A cada 30 segundos
-            gameState.sector++;
-            // Adicionar mais asteroides
-            createAsteroid('large');
-            if (gameState.sector > 2) {
-                createAsteroid('medium');
+    if (gameState.paused) return;
+
+    // Atualizar
+    updatePlayer();
+    updateBullets();
+    updateMissiles();
+    updateAsteroids();
+    updateParticles();
+    updateXPOrbs();
+
+    // Disparar se o mouse estiver pressionado
+    if (mouseDown) {
+        if (playerEffects.plasmaCannon) {
+            chargeTime++;
+            // Feedback visual de carregamento
+        } else {
+            fireBullet();
+        }
+    }
+
+    // Disparar plasma cannon ao soltar o mouse
+    if (!mouseDown && playerEffects.plasmaCannon && chargeTime > 0) {
+        // Disparar orbe de plasma com base no chargeTime
+        const plasmaDamage = playerStats.baseDamage * (1 + chargeTime / 60); // 1 segundo de carga = dobro de dano
+        createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 0.7, plasmaDamage, { plasma: true });
+        chargeTime = 0;
+    }
+
+    // Desenhar
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+
+    drawParticles();
+    drawBullets();
+    drawMissiles();
+    drawXPOrbs();
+    drawAsteroids();
+    drawPlayer();
+
+    // Desenhar drones orbitais
+    if (playerEffects.orbitalDrones.active) {
+        playerEffects.orbitalDrones.drones.forEach(drone => {
+            drone.angleOffset += 0.05; // Velocidade de órbita
+            const droneX = player.x + Math.cos(player.angle + drone.angleOffset) * drone.distance;
+            const droneY = player.y + Math.sin(player.angle + drone.angleOffset) * drone.distance;
+            ctx.fillStyle = "#8A2BE2"; // Azul violeta
+            ctx.beginPath();
+            ctx.arc(droneX, droneY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Disparar
+            const now = Date.now();
+            if (!drone.lastFireTime) drone.lastFireTime = now;
+            const fireDelay = 1000 / drone.fireRate;
+            if (now - drone.lastFireTime > fireDelay) {
+                createBullet(droneX, droneY, player.angle + drone.angleOffset);
+                drone.lastFireTime = now;
+            }
+        });
+    }
+
+    // Desenhar lâmina de energia
+    if (playerEffects.energyBlade && keys["KeyR"]) {
+        const bladeLength = 50;
+        const bladeWidth = 10;
+        const bladeX = player.x + Math.cos(player.angle) * (player.size + bladeLength / 2);
+        const bladeY = player.y + Math.sin(player.angle) * (player.size + bladeLength / 2);
+
+        ctx.save();
+        ctx.translate(bladeX, bladeY);
+        ctx.rotate(player.angle);
+        ctx.fillStyle = "#FF00FF"; // Magenta
+        ctx.fillRect(-bladeLength / 2, -bladeWidth / 2, bladeLength, bladeWidth);
+        ctx.restore();
+
+        // Detectar colisão com asteroides
+        for (let i = asteroids.length - 1; i >= 0; i--) {
+            const asteroid = asteroids[i];
+            // Simplificação: colisão circular com o centro da lâmina
+            const dist = Math.sqrt((bladeX - asteroid.x) ** 2 + (bladeY - asteroid.y) ** 2);
+            if (dist < asteroid.radius + bladeLength / 2) {
+                asteroid.health -= playerStats.baseDamage * 2; // Dano da lâmina
+                createParticles(asteroid.x, asteroid.y, 10, "#FF00FF");
+                if (asteroid.health <= 0) {
+                    handleAsteroidDestruction(asteroid, i);
+                }
             }
         }
     }
-    
-    render();
+
+    // Pulso Estático
+    if (playerEffects.staticPulse.active && keys["KeyQ"] && playerEffects.staticPulse.cooldown === 0) {
+        const pulseRadius = 200;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, pulseRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255, 255, 0, 0.7)";
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        // Aplicar dano aos asteroides dentro do raio
+        for (let i = asteroids.length - 1; i >= 0; i--) {
+            const asteroid = asteroids[i];
+            const dist = Math.sqrt((player.x - asteroid.x) ** 2 + (player.y - asteroid.y) ** 2);
+            if (dist < pulseRadius) {
+                asteroid.health -= playerStats.baseDamage * 3; // Dano do pulso
+                createParticles(asteroid.x, asteroid.y, 15, "#FFFF00");
+                if (asteroid.health <= 0) {
+                    handleAsteroidDestruction(asteroid, i);
+                }
+            }
+        }
+        playerEffects.staticPulse.cooldown = 300; // 5 segundos de recarga
+    }
+
+    // Teleporte de Emergência
+    if (playerEffects.emergencyTeleport.active && keys["KeyE"] && playerEffects.emergencyTeleport.cooldown === 0) {
+        const teleportDistance = 150;
+        player.x += Math.cos(player.angle) * teleportDistance;
+        player.y += Math.sin(player.angle) * teleportDistance;
+        createParticles(player.x, player.y, 20, "#00FFFF"); // Partículas de teleporte
+        playerEffects.emergencyTeleport.cooldown = 180; // 3 segundos de recarga
+    }
+
+    // Manto de Invisibilidade
+    if (playerEffects.invisibilityCloak.active && keys["KeyI"] && playerEffects.invisibilityCloak.cooldown === 0) {
+        player.invisible = true;
+        playerEffects.invisibilityCloak.duration = 300; // 5 segundos de invisibilidade
+        playerEffects.invisibilityCloak.cooldown = 600; // 10 segundos de recarga
+    }
+
+    // Sobrecarga de Escudo
+    if (playerEffects.shieldOvercharge.active && keys["KeyO"] && playerEffects.shieldOvercharge.cooldown === 0) {
+        playerStats.health -= playerStats.maxHealth * 0.1; // Custa 10% da vida
+        playerEffects.shieldOvercharge.cooldown = 600; // 10 segundos de recarga
+        // Efeito visual de invulnerabilidade
+    }
+
     requestAnimationFrame(gameLoop);
 }
 
-// Iniciar jogo
-init();
-gameLoop();
+// Inicia o carregamento das imagens e depois o jogo
+loadImages().then(() => {
+    console.log("Imagens carregadas!");
+    // Certifica-se de que o vídeo está pronto para tocar
+    introVideo.load();
+    introVideo.play().catch(error => {
+        console.log("Erro ao reproduzir vídeo automaticamente:", error);
+        // Fallback: mostrar apenas o botão sem vídeo
+    });
+}).catch(error => {
+    console.error("Erro ao carregar imagens:", error);
+    // Mesmo com erro nas imagens, permite continuar
+    introVideo.load();
+    introVideo.play().catch(error => {
+        console.log("Erro ao reproduzir vídeo automaticamente:", error);
+    });
+});
+
+// Função auxiliar para encontrar o asteroide mais próximo
+function findClosestAsteroid(x, y) {
+    let closest = null;
+    let minDistance = Infinity;
+    
+    for (const asteroid of asteroids) {
+        const distance = Math.sqrt((x - asteroid.x) ** 2 + (y - asteroid.y) ** 2);
+        if (distance < minDistance) {
+            minDistance = distance;
+            closest = asteroid;
+        }
+    }
+    
+    return closest;
+}
+
 
