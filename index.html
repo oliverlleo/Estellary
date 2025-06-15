@@ -7,9 +7,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- POPUP DE PERMISSÃO DE SOM (ADICIONADO) -->
+    <div id="soundPermissionPopup">
+        <div class="popup-content">
+            <h2>Permitir som?</h2>
+            <p>Este jogo contém áudio. Deseja ativá-lo?</p>
+            <div class="popup-buttons">
+                <button id="allowSoundBtn">Sim</button>
+                <button id="denySoundBtn">Não</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TELA DE INTRODUÇÃO -->
-    <div id="introScreen">
-        <video id="introVideo" src="background_video.mp4" autoplay loop muted playsinline></video>
+    <div id="introScreen" class="hidden">
+        <video id="introVideo" src="background_video.mp4" loop muted playsinline></video>
         <img id="playButton" src="play_button.png" alt="Jogar">
     </div>
 
@@ -61,6 +73,7 @@
         </div>
     </div>
 
+    <audio id="introMusic" src="startwind.ogg" loop></audio>
     <script src="script.js"></script>
 </body>
 </html>
