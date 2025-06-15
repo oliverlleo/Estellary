@@ -67,7 +67,7 @@ window.onload = function() {
     const earthImage = new Image(); earthImage.src = "terra.png";
     const moonImage = new Image(); moonImage.src = "lua.png";
     const satelliteImage = new Image(); satelliteImage.src = "satelite.png";
-    const satelliteRedImage = new Image(); satelliteRedImage.src = "satelitered.png"; // Nova imagem para o satélite de elite
+    const satelliteRedImage = new Image(); satelliteRedImage.src = "satelitered.png";
     const blueMeteorImage = new Image(); blueMeteorImage.src = "meteoroazul.png";
     const destroyedShipImage = new Image(); destroyedShipImage.src = "Navedestruida.png";
     const restartButtonImage = new Image(); restartButtonImage.src = "botaojogarnovamente.png";
@@ -220,7 +220,7 @@ window.onload = function() {
             });
         } else {
             const impulseAngle = Math.random() * Math.PI * 2;
-            const impulseForce = 4 * 2.5; // Aumento de 150% na força do impulso
+            const impulseForce = 10;
             satellites.push({
                 x: spawnX, y: spawnY,
                 vx: Math.cos(impulseAngle) * impulseForce,
@@ -375,6 +375,7 @@ window.onload = function() {
             createParticles(boss.x, boss.y, 300, "#ffffff");
             gameState.bossActive = false;
             boss = null;
+            satellites.length = 0; // CORREÇÃO: Limpa os satélites ao derrotar o chefe
             bossHealthBarContainer.classList.add('hidden');
             bossWarningBorder.classList.add('hidden');
             gameState.postBossMode = true;
