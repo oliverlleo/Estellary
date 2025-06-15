@@ -1,13 +1,11 @@
 // =================================================================================
 // ESTRUTURA PRINCIPAL DO JOGO
 // Usamos window.onload para garantir que todo o HTML, imagens e sons estejam
-// carregados antes de qualquer código ser executado. Isso corrige o erro de
-// "cannot read properties of null" de forma definitiva.
+// carregados antes de qualquer código ser executado.
 // =================================================================================
 window.onload = function() {
 
     // --- 1. SELEÇÃO DE ELEMENTOS DO DOM ---
-    // Agora é seguro buscar todos os elementos, pois a página está totalmente carregada.
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const soundPermissionPopup = document.getElementById("soundPermissionPopup");
@@ -203,11 +201,45 @@ window.onload = function() {
         lastSatelliteLaunch = Date.now();
     }
 
+    // CORRIGIDO: Lógica para criar os satélites do chefe
     function createSatellite(x, y, side) {
-        const spawnAngle = (Math.PI / 2) + (side * (Math.PI / 4 + (Math.random() * Math.PI / 4)));
-        const spawnX = x + Math.cos(spawnAngle) * (boss.radius);
-        const spawnY = y + Math.sin(spawnAngle) * (boss.radius);
-        satellites.push({ x: spawnX, y: spawnY, vx: 0, vy: 0, speed: 1.2, radius: 20, damage: 20, health: 30 });
+        // Ângulos fixos para garantir que os satélites nasçam em lados opostos
+        const baseAngle = Math.PI / 2; // Para baixo
+        const separationAngle = Math.PI / 4; // 45 graus de separação
+        const spawnAngle = baseAngle + (side * separationAngle);
+
+        const spawnX = x + Math.cos(spawnAngle) * (boss.radius + 10);
+        const spawnY = y + Math.sin(spawnAngle) * (boss.radius + 10);
+
+        const isElite = Math.random() < 0.20; // 20% de chance de ser um satélite de elite
+
+        if (isElite) {
+            // Satélite de Elite: mais forte e resistente
+            satellites.push({
+                x: spawnX,
+                y: spawnY,
+                vx: 0,
+                vy: 0,
+                speed: 1.0, // Um pouco mais lento
+                radius: 30, // Maior
+                damage: 20 * 1.20, // 20% a mais de dano
+                health: 30, // Precisa de 3 tiros para destruir
+                isElite: true
+            });
+        } else {
+            // Satélite Comum: morre com 1 tiro
+            satellites.push({
+                x: spawnX,
+                y: spawnY,
+                vx: 0,
+                vy: 0,
+                speed: 1.2,
+                radius: 20,
+                damage: 20,
+                health: 10, // Vida para morrer com 1 tiro
+                isElite: false
+            });
+        }
     }
 
     function updatePlayer() {
@@ -490,12 +522,22 @@ window.onload = function() {
         if (moonImage.loadSuccess !== false) ctx.drawImage(moonImage, moonX - boss.moon.radius, moonY - boss.moon.radius, boss.moon.radius * 2, boss.moon.radius * 2);
     }
 
+    // CORRIGIDO: Desenha os satélites, com uma indicação visual para os elites
     function drawSatellites() {
         for (const s of satellites) {
             if (satelliteImage.loadSuccess !== false) {
                 ctx.save();
                 ctx.translate(s.x, s.y);
                 ctx.rotate(Math.atan2(s.vy, s.vx) + Math.PI / 2);
+                
+                if (s.isElite) {
+                    // Adiciona um brilho vermelho para os satélites de elite
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, s.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
                 ctx.drawImage(satelliteImage, -s.radius, -s.radius, s.radius * 2, s.radius * 2);
                 ctx.restore();
             }
