@@ -67,6 +67,7 @@ window.onload = function() {
     const earthImage = new Image(); earthImage.src = "terra.png";
     const moonImage = new Image(); moonImage.src = "lua.png";
     const satelliteImage = new Image(); satelliteImage.src = "satelite.png";
+    const satelliteRedImage = new Image(); satelliteRedImage.src = "satelitered.png"; // Nova imagem para o satélite de elite
     const blueMeteorImage = new Image(); blueMeteorImage.src = "meteoroazul.png";
     const destroyedShipImage = new Image(); destroyedShipImage.src = "Navedestruida.png";
     const restartButtonImage = new Image(); restartButtonImage.src = "botaojogarnovamente.png";
@@ -201,43 +202,32 @@ window.onload = function() {
         lastSatelliteLaunch = Date.now();
     }
 
-    // CORRIGIDO: Lógica para criar os satélites do chefe
     function createSatellite(x, y, side) {
-        // Ângulos fixos para garantir que os satélites nasçam em lados opostos
-        const baseAngle = Math.PI / 2; // Para baixo
-        const separationAngle = Math.PI / 4; // 45 graus de separação
+        const baseAngle = Math.PI / 2;
+        const separationAngle = Math.PI / 4;
         const spawnAngle = baseAngle + (side * separationAngle);
 
         const spawnX = x + Math.cos(spawnAngle) * (boss.radius + 10);
         const spawnY = y + Math.sin(spawnAngle) * (boss.radius + 10);
 
-        const isElite = Math.random() < 0.20; // 20% de chance de ser um satélite de elite
+        const isElite = Math.random() < 0.20;
 
         if (isElite) {
-            // Satélite de Elite: mais forte e resistente
             satellites.push({
-                x: spawnX,
-                y: spawnY,
-                vx: 0,
-                vy: 0,
-                speed: 1.0, // Um pouco mais lento
-                radius: 30, // Maior
-                damage: 20 * 1.20, // 20% a mais de dano
-                health: 30, // Precisa de 3 tiros para destruir
-                isElite: true
+                x: spawnX, y: spawnY, vx: 0, vy: 0,
+                speed: 1.0, radius: 30, damage: 20 * 1.20,
+                health: 30, isElite: true
             });
         } else {
-            // Satélite Comum: morre com 1 tiro
+            const impulseAngle = Math.random() * Math.PI * 2;
+            const impulseForce = 4 * 2.5; // Aumento de 150% na força do impulso
             satellites.push({
-                x: spawnX,
-                y: spawnY,
-                vx: 0,
-                vy: 0,
-                speed: 1.2,
-                radius: 20,
-                damage: 20,
-                health: 10, // Vida para morrer com 1 tiro
-                isElite: false
+                x: spawnX, y: spawnY,
+                vx: Math.cos(impulseAngle) * impulseForce,
+                vy: Math.sin(impulseAngle) * impulseForce,
+                speed: 1.2 * 1.15,
+                radius: 20, damage: 20, health: 10,
+                isElite: false, homingDelay: 45
             });
         }
     }
@@ -397,10 +387,21 @@ window.onload = function() {
     function updateSatellites() {
         for (let i = satellites.length - 1; i >= 0; i--) {
             const s = satellites[i];
-            const angleToPlayer = Math.atan2(player.y - s.y, player.x - s.x);
-            s.vx = Math.cos(angleToPlayer) * s.speed;
-            s.vy = Math.sin(angleToPlayer) * s.speed;
-            s.x += s.vx; s.y += s.vy;
+
+            if (s.homingDelay && s.homingDelay > 0) {
+                s.x += s.vx;
+                s.y += s.vy;
+                s.vx *= 0.98; 
+                s.vy *= 0.98;
+                s.homingDelay--;
+            } else {
+                const angleToPlayer = Math.atan2(player.y - s.y, player.x - s.x);
+                s.vx = Math.cos(angleToPlayer) * s.speed;
+                s.vy = Math.sin(angleToPlayer) * s.speed;
+                s.x += s.vx;
+                s.y += s.vy;
+            }
+            
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
                 if (Math.hypot(b.x - s.x, b.y - s.y) < s.radius) {
@@ -410,11 +411,13 @@ window.onload = function() {
                     if (s.health <= 0) {
                         createParticles(s.x, s.y, 15, "#ffa500");
                         satellites.splice(i, 1);
-                        break;
+                        break; 
                     }
                 }
             }
+            
             if (i >= satellites.length) continue;
+
             if (!player.invisible && !gameState.isGameOver) {
                 const noseX = player.x + Math.cos(player.angle) * (player.size * 0.5);
                 const noseY = player.y + Math.sin(player.angle) * (player.size * 0.5);
@@ -424,7 +427,7 @@ window.onload = function() {
                     takeDamage(s.damage);
                     createParticles(s.x, s.y, 10, "#ffff00");
                     satellites.splice(i, 1);
-                    continue;
+                    continue; 
                 }
             }
         }
@@ -522,23 +525,22 @@ window.onload = function() {
         if (moonImage.loadSuccess !== false) ctx.drawImage(moonImage, moonX - boss.moon.radius, moonY - boss.moon.radius, boss.moon.radius * 2, boss.moon.radius * 2);
     }
 
-    // CORRIGIDO: Desenha os satélites, com uma indicação visual para os elites
     function drawSatellites() {
         for (const s of satellites) {
-            if (satelliteImage.loadSuccess !== false) {
+            const imageToDraw = s.isElite ? satelliteRedImage : satelliteImage;
+            if (imageToDraw.loadSuccess !== false) {
                 ctx.save();
                 ctx.translate(s.x, s.y);
                 ctx.rotate(Math.atan2(s.vy, s.vx) + Math.PI / 2);
                 
                 if (s.isElite) {
-                    // Adiciona um brilho vermelho para os satélites de elite
                     ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
                     ctx.beginPath();
-                    ctx.arc(0, 0, s.radius, 0, Math.PI * 2);
+                    ctx.arc(0, 0, s.radius * 1.2, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
-                ctx.drawImage(satelliteImage, -s.radius, -s.radius, s.radius * 2, s.radius * 2);
+                ctx.drawImage(imageToDraw, -s.radius, -s.radius, s.radius * 2, s.radius * 2);
                 ctx.restore();
             }
         }
