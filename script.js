@@ -36,7 +36,7 @@ window.onload = function() {
     let playerStats = { ...initialPlayerStats };
     const initialPlayerEffects = {
         bifurcatedShot: { active: false, level: 0 },
-        plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, cooldownDuration: 360 }, // 6 segundos * 60fps
+        plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, cooldownDuration: 360 },
         missileStorm: { active: false, shotCount: 0 },
         orbitalDrones: { active: false, drones: [] },
         energyBlade: { active: false, duration: 0, cooldown: 0, angle: 0 },
@@ -61,7 +61,6 @@ window.onload = function() {
     const keys = {};
     let mouseDown = false, chargeTime = 0;
 
-    // Variáveis para o sistema de cheat codes
     let keySequence = [];
     let sequenceTimeout;
 
@@ -78,6 +77,8 @@ window.onload = function() {
     const destroyedShipImage = new Image(); destroyedShipImage.src = "Navedestruida.png";
     const restartButtonImage = new Image(); restartButtonImage.src = "botaojogarnovamente.png";
     const gameOverMessageImage = new Image(); gameOverMessageImage.src = "ruim.png";
+    const plasmaShotImage = new Image(); plasmaShotImage.src = "esferaplasma.png"; // Nova imagem para o tiro de plasma
+    const energyBladeImage = new Image(); energyBladeImage.src = "lamina.png"; // Nova imagem para a lâmina de energia
 
     // Banco de Dados de Cartas
     const cardDatabase = [
@@ -562,34 +563,22 @@ window.onload = function() {
     function drawEnergyBlade() {
         if (!playerEffects.energyBlade.active || playerEffects.energyBlade.duration <= 0) return;
     
-        const bladeLength = 80;
-        const bladeRadius = bladeLength / 2;
+        const bladeLength = 90; 
+        const bladeWidth = 15; 
         const angle = playerEffects.energyBlade.angle;
     
-        const p1x = player.x + Math.cos(angle) * bladeRadius;
-        const p1y = player.y + Math.sin(angle) * bladeRadius;
-        const p2x = player.x - Math.cos(angle) * bladeRadius;
-        const p2y = player.y - Math.sin(angle) * bladeRadius;
-    
         ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(p1x, p1y);
-        ctx.lineTo(p2x, p2y);
-        ctx.strokeStyle = "#FF00FF";
-        ctx.lineWidth = 4;
-        ctx.shadowColor = "#FF00FF";
-        ctx.shadowBlur = 10;
-        ctx.stroke();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(angle);
+        ctx.drawImage(energyBladeImage, -bladeLength / 2, -bladeWidth / 2, bladeLength, bladeWidth);
         ctx.restore();
     }
 
     function drawBullets() {
         for (const b of bullets) {
             if (b.special && b.special.plasma) {
-                ctx.fillStyle = 'cyan';
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, b.special.size / 2, 0, Math.PI * 2);
-                ctx.fill();
+                const size = b.special.size;
+                ctx.drawImage(plasmaShotImage, b.x - size / 2, b.y - size / 2, size, size);
             } else {
                 ctx.drawImage(projectileImage, b.x - 5, b.y - 5, 10, 10);
             }
@@ -922,11 +911,10 @@ window.onload = function() {
         keys[e.code] = true;
         if (e.code === "Space") e.preventDefault();
         
-        // Sistema de Cheat Codes
         if (!isNaN(e.key)) {
             clearTimeout(sequenceTimeout);
             keySequence.push(e.key);
-            sequenceTimeout = setTimeout(() => { keySequence = []; }, 1500); // Reset a cada 1.5 segundos
+            sequenceTimeout = setTimeout(() => { keySequence = []; }, 1500);
             
             const currentSequence = keySequence.join('');
             if (currentSequence.endsWith('1973')) {
