@@ -178,10 +178,10 @@ window.onload = function() {
         bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special });
     }
 
-    function createPlasmaShot() {
+    function firePlasmaShot() { // CORREÇÃO: Função renomeada
         const special = { 
             plasma: true, 
-            size: player.size * 5 // 5x o tamanho do jogador
+            size: player.size * 5 
         };
         createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 0.8, playerStats.baseDamage * 3, special);
     }
@@ -280,9 +280,8 @@ window.onload = function() {
         if (playerEffects.hullShield.active && playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) playerEffects.hullShield.shield += 0.1;
         playerStats.health = Math.min(playerStats.health, playerStats.maxHealth);
 
-        // Canhão de Plasma cooldown e recarga
         if (playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.cooldown > 0) {
-            if (playerEffects.plasmaCannon.cooldown <= 1) { // Quando o cooldown acaba
+            if (playerEffects.plasmaCannon.cooldown <= 1) {
                 playerEffects.plasmaCannon.charges = playerEffects.plasmaCannon.maxCharges;
             }
         }
@@ -654,7 +653,7 @@ window.onload = function() {
             
             if (playerEffects.bifurcatedShot.active) {
                 const numShots = playerEffects.bifurcatedShot.level + 1;
-                const totalAngle = 0.25 * numShots; // Abertura total do leque
+                const totalAngle = 0.25 * numShots;
                 for (let i = 0; i < numShots; i++) {
                     const angleOffset = -totalAngle / 2 + (i * (totalAngle / (numShots - 1 || 1)));
                     createBullet(player.x, player.y, player.angle + angleOffset, playerStats.projectileSpeed, damage * 0.7, special);
@@ -725,7 +724,7 @@ window.onload = function() {
         switch(card.id) {
             case "bifurcated_shot":
                 playerEffects.bifurcatedShot.active = true;
-                if(playerEffects.bifurcatedShot.level < 3) { // Limite de 4 tiros (level 0 a 3)
+                if(playerEffects.bifurcatedShot.level < 3) {
                     playerEffects.bifurcatedShot.level++;
                 }
                 break;
@@ -813,12 +812,10 @@ window.onload = function() {
         
         if (playerEffects.plasmaCannon.active) {
             if (playerEffects.plasmaCannon.cooldown > 0) {
-                // Mostra recarga
                 const cooldownProgress = 1 - (playerEffects.plasmaCannon.cooldown / playerEffects.plasmaCannon.cooldownDuration);
                 heatBarFill.style.width = `${cooldownProgress * 100}%`;
                 heatText.textContent = `RECARREGANDO...`;
             } else {
-                // Mostra cargas
                 const chargeProgress = playerEffects.plasmaCannon.charges / playerEffects.plasmaCannon.maxCharges;
                 heatBarFill.style.width = `${chargeProgress * 100}%`;
                 heatText.textContent = `CARGAS: ${playerEffects.plasmaCannon.charges}/${playerEffects.plasmaCannon.maxCharges}`;
@@ -922,7 +919,6 @@ window.onload = function() {
         if (e.code === "Space") e.preventDefault();
         if (e.code === 'KeyB' && !gameState.bossActive && boss === null) asteroids.length = 0;
     
-        // Habilidades com tecla
         if (!gameState.isGameOver && !gameState.paused) {
             if (e.code === 'KeyX' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
                 firePlasmaShot();
@@ -932,8 +928,8 @@ window.onload = function() {
                 }
             }
             if (e.code === "KeyR" && playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown === 0) {
-                playerEffects.energyBlade.duration = 600; // 10 segundos
-                playerEffects.energyBlade.cooldown = 1200; // 20 segundos de recarga total (10s ativo + 10s esperando)
+                playerEffects.energyBlade.duration = 600;
+                playerEffects.energyBlade.cooldown = 1200;
             }
             if (e.code === "KeyQ" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown === 0) {
                 for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * 3; }
