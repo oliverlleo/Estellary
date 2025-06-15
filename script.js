@@ -11,7 +11,10 @@ window.onload = function() {
     const introVideo = document.getElementById("introVideo");
     const introMusic = document.getElementById("introMusic");
     const gameMusic = document.getElementById("gameMusic");
-    const shotSound = document.getElementById("shotSound"); // Som do tiro
+    const shotSound = document.getElementById("shotSound"); 
+    const plasmaSound = document.getElementById("plasmaSound");
+    const gameOverSound = document.getElementById("gameOverSound");
+    const bossMusic = document.getElementById("bossMusic");
     const xpBarContainer = document.getElementById("xpBarContainer");
     const healthBarContainer = document.getElementById("healthBarContainer");
     const heatBarContainer = document.getElementById("heatBarContainer");
@@ -192,6 +195,11 @@ window.onload = function() {
     }
 
     function firePlasmaShot() {
+        if (soundEnabled) {
+            plasmaSound.currentTime = 0;
+            plasmaSound.volume = 0.7;
+            plasmaSound.play();
+        }
         const special = { 
             plasma: true, 
             size: player.size * 5 
@@ -214,6 +222,11 @@ window.onload = function() {
     }
 
     function spawnBoss() {
+        if (soundEnabled) {
+            gameMusic.pause();
+            bossMusic.currentTime = 0;
+            bossMusic.play();
+        }
         gameState.bossActive = true;
         bossHealthBarContainer.classList.remove('hidden');
         bossWarningBorder.classList.remove('hidden');
@@ -439,6 +452,11 @@ window.onload = function() {
         updateBossUI();
         if (boss.health <= 0) {
             createParticles(boss.x, boss.y, 300, "#ffffff");
+            if (soundEnabled) {
+                bossMusic.pause();
+                gameMusic.currentTime = 0;
+                gameMusic.play();
+            }
             gameState.bossActive = false;
             boss = null;
             satellites.length = 0; 
@@ -788,6 +806,14 @@ window.onload = function() {
         gameState.isGameOver = true;
         player.invisible = true;
         player.vx = 0; player.vy = 0;
+        
+        gameMusic.pause();
+        bossMusic.pause();
+        if(soundEnabled) {
+            gameOverSound.currentTime = 0;
+            gameOverSound.play();
+        }
+
         createParticles(player.x, player.y, 150, "#ff4500");
         createParticles(player.x, player.y, 100, "#ffa500");
         setTimeout(() => { gameOverScreen.classList.remove('hidden'); }, 1000); 
@@ -813,6 +839,13 @@ window.onload = function() {
         playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
         asteroids.length = 0; bullets.length = 0; particles.length = 0;
         missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0;
+        
+        // CORREÇÃO: Não chama initGame() diretamente, pois o playButton fará isso.
+        // Apenas prepara para a tela de intro.
+        if (soundEnabled) {
+            gameMusic.currentTime = 0;
+            gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
+        }
         initGame();
     }
 
@@ -924,16 +957,15 @@ window.onload = function() {
         controls.classList.remove("hidden");
         introMusic.pause();
         if (soundEnabled) {
+            gameMusic.currentTime = 0;
             gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
         }
         initGame();
     });
 
     restartButton.addEventListener('click', () => {
-        gameMusic.pause();
-        gameMusic.currentTime = 0;
-        if(soundEnabled) introMusic.play().catch(e => console.error("A reprodução da música falhou:", e));
-        introScreen.classList.remove('hidden');
+        gameOverSound.pause();
+        gameOverSound.currentTime = 0;
         gameOverScreen.classList.add('hidden');
         restartGame();
     });
