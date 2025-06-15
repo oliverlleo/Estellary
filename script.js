@@ -10,6 +10,8 @@ window.onload = function() {
     const playButton = document.getElementById("playButton");
     const introVideo = document.getElementById("introVideo");
     const introMusic = document.getElementById("introMusic");
+    const gameMusic = document.getElementById("gameMusic");
+    const shotSound = document.getElementById("shotSound"); // Som do tiro
     const xpBarContainer = document.getElementById("xpBarContainer");
     const healthBarContainer = document.getElementById("healthBarContainer");
     const heatBarContainer = document.getElementById("heatBarContainer");
@@ -24,6 +26,7 @@ window.onload = function() {
 
     // --- 2. ESTADO INICIAL E VARIÁVEIS GLOBAIS DO JOGO ---
     let animationFrameId = null;
+    let soundEnabled = false;
     const gameState = {
         paused: false, level: 1, xp: 0, xpRequired: 5, sector: 1, time: 0, score: 0,
         bossActive: false, postBossMode: false, bossDefeats: 0, isGameOver: false
@@ -77,8 +80,8 @@ window.onload = function() {
     const destroyedShipImage = new Image(); destroyedShipImage.src = "Navedestruida.png";
     const restartButtonImage = new Image(); restartButtonImage.src = "botaojogarnovamente.png";
     const gameOverMessageImage = new Image(); gameOverMessageImage.src = "ruim.png";
-    const plasmaShotImage = new Image(); plasmaShotImage.src = "esferaplasma.png"; // Nova imagem para o tiro de plasma
-    const energyBladeImage = new Image(); energyBladeImage.src = "lamina.png"; // Nova imagem para a lâmina de energia
+    const plasmaShotImage = new Image(); plasmaShotImage.src = "esferaplasma.png"; 
+    const energyBladeImage = new Image(); energyBladeImage.src = "lamina.png"; 
 
     // Banco de Dados de Cartas
     const cardDatabase = [
@@ -180,7 +183,12 @@ window.onload = function() {
     }
 
     function createBullet(x, y, angle, speed = playerStats.projectileSpeed, damage = playerStats.baseDamage, special = {}) {
-        bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special });
+        if (soundEnabled && !special.plasma) {
+            shotSound.currentTime = 0;
+            shotSound.volume = 0.5;
+            shotSound.play();
+        }
+        bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special, rotation: 0 });
     }
 
     function firePlasmaShot() {
@@ -319,7 +327,14 @@ window.onload = function() {
     function updateBullets() {
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
-            b.x += b.vx; b.y += b.vy; b.life--;
+            b.x += b.vx;
+            b.y += b.vy;
+            b.life--;
+
+            if (b.special && b.special.plasma) {
+                b.rotation += 0.1;
+            }
+
             if (playerEffects.ricochetShot) {
                 if (b.x < 0 || b.x > canvas.width) b.vx *= -1;
                 if (b.y < 0 || b.y > canvas.height) b.vy *= -1;
@@ -576,12 +591,18 @@ window.onload = function() {
 
     function drawBullets() {
         for (const b of bullets) {
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            
             if (b.special && b.special.plasma) {
                 const size = b.special.size;
-                ctx.drawImage(plasmaShotImage, b.x - size / 2, b.y - size / 2, size, size);
+                ctx.rotate(b.rotation);
+                ctx.drawImage(plasmaShotImage, -size / 2, -size / 2, size, size);
             } else {
-                ctx.drawImage(projectileImage, b.x - 5, b.y - 5, 10, 10);
+                ctx.drawImage(projectileImage, -5, -5, 10, 10);
             }
+            
+            ctx.restore();
         }
     }
 
@@ -880,8 +901,9 @@ window.onload = function() {
     function startIntro(withSound) {
         soundPermissionPopup.classList.add('hidden');
         introScreen.classList.remove('hidden');
+        soundEnabled = withSound;
 
-        if (withSound) {
+        if (soundEnabled) {
             introMusic.muted = false;
             introMusic.play().catch(e => console.error("A reprodução de música falhou:", e));
         } else {
@@ -900,12 +922,21 @@ window.onload = function() {
         xpBarContainer.classList.remove("hidden");
         healthBarContainer.classList.remove("hidden");
         controls.classList.remove("hidden");
-        introVideo.pause();
         introMusic.pause();
+        if (soundEnabled) {
+            gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
+        }
         initGame();
     });
 
-    restartButton.addEventListener('click', restartGame);
+    restartButton.addEventListener('click', () => {
+        gameMusic.pause();
+        gameMusic.currentTime = 0;
+        if(soundEnabled) introMusic.play().catch(e => console.error("A reprodução da música falhou:", e));
+        introScreen.classList.remove('hidden');
+        gameOverScreen.classList.add('hidden');
+        restartGame();
+    });
     
     document.addEventListener("keydown", (e) => {
         keys[e.code] = true;

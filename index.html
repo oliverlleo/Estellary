@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- POPUP DE PERMISSÃO DE SOM -->
     <div id="soundPermissionPopup">
         <div class="popup-content">
             <h2>Permitir som?</h2>
@@ -19,16 +18,13 @@
         </div>
     </div>
 
-    <!-- TELA DE INTRODUÇÃO -->
     <div id="introScreen" class="hidden">
         <video id="introVideo" src="background_video.mp4" loop muted playsinline></video>
         <img id="playButton" src="play_button.png" alt="Jogar">
     </div>
 
-    <!-- BORDA DE ALERTA DO CHEFE -->
     <div id="bossWarningBorder" class="hidden"></div>
 
-    <!-- ELEMENTOS DO JOGO -->
     <canvas id="gameCanvas" class="hidden"></canvas>
     
     <div id="xpBarContainer" class="hidden">
@@ -70,7 +66,6 @@
         - X: Canhão de Plasma
     </div>
 
-    <!-- TELA DE GAME OVER (ATUALIZADA) -->
     <div id="gameOverScreen" class="hidden">
         <div class="gameOverContent">
             <img id="destroyedShipImage" src="Navedestruida.png" alt="Nave Destruída">
@@ -80,6 +75,8 @@
     </div>
 
     <audio id="introMusic" src="startwind.ogg" loop></audio>
+    <audio id="gameMusic" src="play.ogg" loop></audio>
+    <audio id="shotSound" src="tiro.ogg"></audio>
     <script src="script.js"></script>
 </body>
 </html>
