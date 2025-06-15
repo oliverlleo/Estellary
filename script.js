@@ -61,6 +61,10 @@ window.onload = function() {
     const keys = {};
     let mouseDown = false, chargeTime = 0;
 
+    // Variáveis para o sistema de cheat codes
+    let keySequence = [];
+    let sequenceTimeout;
+
     // Imagens do Jogo
     const playerShipImage = new Image(); playerShipImage.src = "player_ship.png";
     const projectileImage = new Image(); projectileImage.src = "projectile.png";
@@ -178,7 +182,7 @@ window.onload = function() {
         bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special });
     }
 
-    function firePlasmaShot() { // CORREÇÃO: Função renomeada
+    function firePlasmaShot() {
         const special = { 
             plasma: true, 
             size: player.size * 5 
@@ -917,8 +921,25 @@ window.onload = function() {
     document.addEventListener("keydown", (e) => {
         keys[e.code] = true;
         if (e.code === "Space") e.preventDefault();
-        if (e.code === 'KeyB' && !gameState.bossActive && boss === null) asteroids.length = 0;
-    
+        
+        // Sistema de Cheat Codes
+        if (!isNaN(e.key)) {
+            clearTimeout(sequenceTimeout);
+            keySequence.push(e.key);
+            sequenceTimeout = setTimeout(() => { keySequence = []; }, 1500); // Reset a cada 1.5 segundos
+            
+            const currentSequence = keySequence.join('');
+            if (currentSequence.endsWith('1973')) {
+                const card = cardDatabase.find(c => c.id === 'plasma_cannon');
+                if (card) applyCardEffect(card);
+                keySequence = [];
+            } else if (currentSequence.endsWith('7319')) {
+                const card = cardDatabase.find(c => c.id === 'bifurcated_shot');
+                if (card) applyCardEffect(card);
+                keySequence = [];
+            }
+        }
+
         if (!gameState.isGameOver && !gameState.paused) {
             if (e.code === 'KeyX' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
                 firePlasmaShot();
@@ -926,6 +947,7 @@ window.onload = function() {
                 if (playerEffects.plasmaCannon.charges <= 0) {
                     playerEffects.plasmaCannon.cooldown = playerEffects.plasmaCannon.cooldownDuration;
                 }
+                updateUI();
             }
             if (e.code === "KeyR" && playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown === 0) {
                 playerEffects.energyBlade.duration = 600;
