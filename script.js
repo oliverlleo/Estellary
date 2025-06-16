@@ -37,7 +37,7 @@ window.onload = function() {
     const initialPlayerStats = {
         maxHealth: 100, health: 100, baseDamage: 10, armor: 0, fireRate: 4, moveSpeed: 1.5,
         critChance: 0.05, critDamage: 1.5, projectileSpeed: 8, projectileRange: 1000,
-        xpCollectionRadius: 100, cooldownReduction: 1, rotationSpeed: 5, luck: 0
+        xpCollectionRadius: 100, cooldownReduction: 1, rotationSpeed: 0.13, luck: 0 // Aumentado em 30%
     };
     let playerStats = { ...initialPlayerStats };
     const initialPlayerEffects = {
@@ -61,7 +61,7 @@ window.onload = function() {
     };
     let playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
 
-    const player = { x: 0, y: 0, angle: 0, vx: 0, vy: 0, size: 15, invisible: false };
+    const player = { x: 0, y: 0, angle: 0, targetAngle: 0, vx: 0, vy: 0, size: 15, invisible: false };
     const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [];
     let boss = null, lastSatelliteLaunch = 0, lastBlueMeteorWaveTime = 0;
     const keys = {};
@@ -269,21 +269,32 @@ window.onload = function() {
     function updatePlayer() {
         player.invisible = playerEffects.invisibilityCloak.duration > 0;
         
-        let moveX = (keys["KeyD"] || keys["ArrowRight"] ? 1 : 0) - (keys["KeyA"] || keys["ArrowLeft"] ? 1 : 0);
-        let moveY = (keys["KeyS"] || keys["ArrowDown"] ? 1 : 0) - (keys["KeyW"] || keys["ArrowUp"] ? 1 : 0);
-        if (moveX !== 0 && moveY !== 0) { moveX *= 0.707; moveY *= 0.707; }
+        let moveX = (keys["KeyD"] ? 1 : 0) - (keys["KeyA"] ? 1 : 0);
+        let moveY = (keys["KeyS"] ? 1 : 0) - (keys["KeyW"] ? 1 : 0);
+
         if (moveX !== 0 || moveY !== 0) {
-            const thrustPower = 0.4 * playerStats.moveSpeed;
-            player.vx += moveX * thrustPower;
-            player.vy += moveY * thrustPower;
-            player.angle = Math.atan2(moveY, moveX);
+            player.targetAngle = Math.atan2(moveY, moveX);
         }
+
+        let angleDiff = player.targetAngle - player.angle;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        player.angle += angleDiff * playerStats.rotationSpeed;
         
-        player.vx *= 0.95; player.vy *= 0.95;
+        const thrustPower = 0.4 * playerStats.moveSpeed;
+        player.vx += moveX * thrustPower;
+        player.vy += moveY * thrustPower;
+    
+        player.vx *= 0.95; 
+        player.vy *= 0.95;
         const maxSpeed = playerStats.moveSpeed * 1.5;
         const speed = Math.hypot(player.vx, player.vy);
-        if (speed > maxSpeed) { player.vx = (player.vx / speed) * maxSpeed; player.vy = (player.vy / speed) * maxSpeed; }
-        player.x += player.vx; player.y += player.vy;
+        if (speed > maxSpeed) { 
+            player.vx = (player.vx / speed) * maxSpeed; 
+            player.vy = (player.vy / speed) * maxSpeed; 
+        }
+        player.x += player.vx; 
+        player.y += player.vy;
 
         if (gameState.bossActive) {
             if (player.x - player.size < 0) player.x = player.size;
@@ -294,7 +305,7 @@ window.onload = function() {
             if (player.x < 0) player.x = canvas.width; if (player.x > canvas.width) player.x = 0;
             if (player.y < 0) player.y = canvas.height; if (player.y > canvas.height) player.y = 0;
         }
-
+    
         Object.values(playerEffects).forEach(effect => { 
             if (effect && typeof effect === 'object') {
                 if (effect.cooldown > 0) effect.cooldown--; 
@@ -305,7 +316,7 @@ window.onload = function() {
         if (playerEffects.nanobotRegeneration && playerStats.health < playerStats.maxHealth) playerStats.health += 0.05;
         if (playerEffects.hullShield.active && playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) playerEffects.hullShield.shield += 0.1;
         playerStats.health = Math.min(playerStats.health, playerStats.maxHealth);
-
+    
         if (playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.cooldown > 0) {
             if (playerEffects.plasmaCannon.cooldown <= 1) {
                 playerEffects.plasmaCannon.charges = playerEffects.plasmaCannon.maxCharges;
@@ -840,8 +851,6 @@ window.onload = function() {
         asteroids.length = 0; bullets.length = 0; particles.length = 0;
         missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0;
         
-        // CORREÇÃO: Não chama initGame() diretamente, pois o playButton fará isso.
-        // Apenas prepara para a tela de intro.
         if (soundEnabled) {
             gameMusic.currentTime = 0;
             gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
