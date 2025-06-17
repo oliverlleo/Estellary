@@ -130,6 +130,31 @@ body {
     display: none !important;
 }
 
+#scoreContainer {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    z-index: 500;
+}
+
+#scoreTitle {
+    height: 25px;
+}
+
+#scoreDigits {
+    display: flex;
+}
+
+#scoreDigits img {
+    height: 30px;
+    width: auto;
+}
+
 #xpBarContainer {
     position: absolute;
     top: 20px;
@@ -220,7 +245,7 @@ body {
 
 #bossHealthBarContainer {
     position: absolute;
-    top: 60px;
+    top: 90px;
     left: 50%;
     transform: translateX(-50%);
     width: 50%;

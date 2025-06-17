@@ -15,6 +15,14 @@ window.onload = function() {
     const plasmaSound = document.getElementById("plasmaSound");
     const gameOverSound = document.getElementById("gameOverSound");
     const bossMusic = document.getElementById("bossMusic");
+    const scoreContainer = document.getElementById("scoreContainer");
+    const scoreDigits = [
+        document.getElementById("scoreDigit0"),
+        document.getElementById("scoreDigit1"),
+        document.getElementById("scoreDigit2"),
+        document.getElementById("scoreDigit3"),
+        document.getElementById("scoreDigit4"),
+    ];
     const xpBarContainer = document.getElementById("xpBarContainer");
     const healthBarContainer = document.getElementById("healthBarContainer");
     const heatBarContainer = document.getElementById("heatBarContainer");
@@ -37,7 +45,7 @@ window.onload = function() {
     const initialPlayerStats = {
         maxHealth: 100, health: 100, baseDamage: 10, armor: 0, fireRate: 4, moveSpeed: 1.5,
         critChance: 0.05, critDamage: 1.5, projectileSpeed: 8, projectileRange: 1000,
-        xpCollectionRadius: 100, cooldownReduction: 1, rotationSpeed: 0.13, luck: 0 // Aumentado em 30%
+        xpCollectionRadius: 100, cooldownReduction: 1, rotationSpeed: 0.13, luck: 0
     };
     let playerStats = { ...initialPlayerStats };
     const initialPlayerEffects = {
@@ -85,6 +93,12 @@ window.onload = function() {
     const gameOverMessageImage = new Image(); gameOverMessageImage.src = "ruim.png";
     const plasmaShotImage = new Image(); plasmaShotImage.src = "esferaplasma.png"; 
     const energyBladeImage = new Image(); energyBladeImage.src = "lamina.png"; 
+
+    const numberImages = [];
+    for(let i=0; i < 10; i++) {
+        numberImages[i] = new Image();
+        numberImages[i].src = `${i}.png`;
+    }
 
     // Banco de Dados de Cartas
     const cardDatabase = [
@@ -140,13 +154,7 @@ window.onload = function() {
     }
 
     function createAsteroid(size, x, y, isFragment = false) {
-        let healthMultiplier = 1;
-        let damageMultiplier = 1;
-        let speedMultiplier = 1 + (gameState.bossDefeats * 0.10);
-        if (gameState.bossDefeats > 0) {
-            healthMultiplier = 1.20;
-            damageMultiplier = 1.25;
-        }
+        const speedMultiplier = 1 + (gameState.bossDefeats * 0.20);
         const baseSpeed = 2;
         const speed = baseSpeed * speedMultiplier;
         const asteroid = { 
@@ -166,9 +174,9 @@ window.onload = function() {
             asteroid.vy = (Math.random() - 0.5) * speed; 
         }
         switch (size) {
-            case "small": asteroid.radius = 15; asteroid.health = 10 * healthMultiplier; asteroid.damage = 15 * damageMultiplier; asteroid.xpReward = 1; break;
-            case "medium": asteroid.radius = 30; asteroid.health = 40 * healthMultiplier; asteroid.damage = 30 * damageMultiplier; asteroid.xpReward = 5; break;
-            case "large": asteroid.radius = 50; asteroid.health = 100 * healthMultiplier; asteroid.damage = 60 * damageMultiplier; asteroid.xpReward = 7; break;
+            case "small": asteroid.radius = 15; asteroid.health = 10; asteroid.damage = 15; asteroid.xpReward = 1; break;
+            case "medium": asteroid.radius = 30; asteroid.health = 40; asteroid.damage = 30; asteroid.xpReward = 5; break;
+            case "large": asteroid.radius = 50; asteroid.health = 100; asteroid.damage = 60; asteroid.xpReward = 7; break;
         }
         asteroid.maxHealth = asteroid.health;
         if (!isFragment && Math.hypot(asteroid.x - player.x, asteroid.y - player.y) < 200) { 
@@ -181,8 +189,9 @@ window.onload = function() {
     function createBlueMeteor() {
         const radius = (15 * 0.7) * 1.35;
         const x = Math.random() * canvas.width;
-        const y = -radius; 
-        blueMeteors.push({ x: x, y: y, vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random(), radius: radius, damage: 20 });
+        const y = -radius;
+        const speedMultiplier = 1 + (gameState.bossDefeats * 0.20);
+        blueMeteors.push({ x: x, y: y, vx: (Math.random() - 0.5) * 2, vy: (2 + Math.random()) * speedMultiplier, radius: radius, damage: 20 });
     }
 
     function createBullet(x, y, angle, speed = playerStats.projectileSpeed, damage = playerStats.baseDamage, special = {}) {
@@ -230,9 +239,14 @@ window.onload = function() {
         gameState.bossActive = true;
         bossHealthBarContainer.classList.remove('hidden');
         bossWarningBorder.classList.remove('hidden');
+        
+        const bossSpeedMultiplier = 1 + (gameState.bossDefeats * 0.20);
+
         boss = {
             x: canvas.width / 2, y: -100, vx: 0, vy: 1, hasEntered: false, radius: 80,
-            health: 500 * (1 + gameState.bossDefeats * 0.5), maxHealth: 500 * (1 + gameState.bossDefeats * 0.5),
+            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.4 * bossSpeedMultiplier,
+            health: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
+            maxHealth: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
             damage: 100, moon: { angle: 0, distance: 120, radius: 16 }
         };
         lastSatelliteLaunch = Date.now();
@@ -429,7 +443,7 @@ window.onload = function() {
             boss.y += boss.vy;
             if (boss.y >= 150) {
                 boss.hasEntered = true;
-                boss.vx = (Math.random() > 0.5 ? 1 : -1) * 0.4;
+                boss.vx = boss.initialVx;
             }
         } else {
             boss.x += boss.vx;
@@ -438,11 +452,14 @@ window.onload = function() {
         boss.moon.angle += 0.02;
         const moonX = boss.x + Math.cos(boss.moon.angle) * boss.moon.distance;
         const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
-        if (Date.now() - lastSatelliteLaunch > 2000) {
+        
+        const satelliteInterval = 4000 * Math.pow(0.8, gameState.bossDefeats);
+        if (Date.now() - lastSatelliteLaunch > satelliteInterval) {
             createSatellite(boss.x, boss.y, -1);
             createSatellite(boss.x, boss.y, 1);
             lastSatelliteLaunch = Date.now();
         }
+
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
             let hit = false;
@@ -476,7 +493,8 @@ window.onload = function() {
             gameState.postBossMode = true;
             gameState.bossDefeats++;
             lastBlueMeteorWaveTime = Date.now();
-            for (let i = 0; i < 7; i++) createAsteroid("large");
+            const asteroidsToSpawn = 7 + gameState.bossDefeats;
+            for (let i = 0; i < asteroidsToSpawn; i++) createAsteroid("large");
         }
     }
 
@@ -553,6 +571,7 @@ window.onload = function() {
         createParticles(asteroid.x, asteroid.y, 20, "#A9A9A9");
         createXPOrb(asteroid.x, asteroid.y, asteroid.xpReward);
         gameState.score += asteroid.xpReward;
+        updateScoreUI();
         if (asteroid.size === "large") { createAsteroid("medium", asteroid.x, asteroid.y, true); createAsteroid("medium", asteroid.x, asteroid.y, true); }
         else if (asteroid.size === "medium") { for(let i=0; i<4; i++) createAsteroid("small", asteroid.x, asteroid.y, true); }
         asteroids.splice(index, 1);
@@ -815,7 +834,6 @@ window.onload = function() {
 
     function gameOver() {
         gameState.isGameOver = true;
-        player.invisible = true;
         player.vx = 0; player.vy = 0;
         
         gameMusic.pause();
@@ -858,6 +876,13 @@ window.onload = function() {
         initGame();
     }
 
+    function updateScoreUI() {
+        const scoreString = gameState.score.toString().padStart(5, '0');
+        for (let i = 0; i < scoreString.length; i++) {
+            scoreDigits[i].src = numberImages[scoreString[i]].src;
+        }
+    }
+
     function updateUI() {
         xpBarContainer.querySelector("#xpText").textContent = `NÍVEL ${gameState.level} | XP: ${gameState.xp}/${gameState.xpRequired}`;
         xpBarContainer.querySelector("#xpBarFill").style.width = `${(gameState.xp / gameState.xpRequired) * 100}%`;
@@ -866,6 +891,8 @@ window.onload = function() {
         healthBarFill.style.width = `${(playerStats.health / playerStats.maxHealth) * 100}%`;
         healthBarFill.style.background = (playerStats.health / playerStats.maxHealth < 0.3) ? 'linear-gradient(90deg, #ff0000, #ff6600)' : 'linear-gradient(90deg, #00ff00, #ffff00)';
         
+        updateScoreUI();
+
         if (playerEffects.plasmaCannon.active) {
             if (playerEffects.plasmaCannon.cooldown > 0) {
                 const cooldownProgress = 1 - (playerEffects.plasmaCannon.cooldown / playerEffects.plasmaCannon.cooldownDuration);
@@ -887,7 +914,9 @@ window.onload = function() {
     function gameLoop() {
         if (gameState.paused) return;
         try {
-            updatePlayer();
+            if (!gameState.isGameOver) {
+                updatePlayer();
+            }
             updateEnergyBlade();
             
             if (!gameState.isGameOver) {
@@ -912,7 +941,10 @@ window.onload = function() {
             drawBoss();
             drawSatellites();
             drawBlueMeteors();
-            drawPlayer();
+            
+            if (!gameState.isGameOver) {
+                drawPlayer();
+            }
             drawEnergyBlade();
             
             if (playerEffects.orbitalDrones.active) {
@@ -964,6 +996,7 @@ window.onload = function() {
         xpBarContainer.classList.remove("hidden");
         healthBarContainer.classList.remove("hidden");
         controls.classList.remove("hidden");
+        scoreContainer.classList.remove("hidden");
         introMusic.pause();
         if (soundEnabled) {
             gameMusic.currentTime = 0;
@@ -1001,7 +1034,7 @@ window.onload = function() {
         }
 
         if (!gameState.isGameOver && !gameState.paused) {
-            if (e.code === 'KeyX' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
+            if (e.code === 'KeyK' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
                 firePlasmaShot();
                 playerEffects.plasmaCannon.charges--;
                 if (playerEffects.plasmaCannon.charges <= 0) {
@@ -1009,16 +1042,16 @@ window.onload = function() {
                 }
                 updateUI();
             }
-            if (e.code === "KeyR" && playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown === 0) {
+            if (e.code === "KeyJ" && playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown === 0) {
                 playerEffects.energyBlade.duration = 600;
                 playerEffects.energyBlade.cooldown = 1200;
             }
-            if (e.code === "KeyQ" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown === 0) {
+            if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown === 0) {
                 for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * 3; }
                 createParticles(player.x, player.y, 50, "#FFFF00");
                 playerEffects.staticPulse.cooldown = 300 * playerStats.cooldownReduction;
             }
-            if (e.code === "KeyE" && playerEffects.emergencyTeleport.active && playerEffects.emergencyTeleport.cooldown === 0) {
+            if (e.code === "KeyP" && playerEffects.emergencyTeleport.active && playerEffects.emergencyTeleport.cooldown === 0) {
                 player.x += Math.cos(player.angle) * 150; player.y += Math.sin(player.angle) * 150;
                 createParticles(player.x, player.y, 20, "#00FFFF");
                 playerEffects.emergencyTeleport.cooldown = 180 * playerStats.cooldownReduction;

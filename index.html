@@ -31,6 +31,18 @@
     <!-- ELEMENTOS DO JOGO -->
     <canvas id="gameCanvas" class="hidden"></canvas>
     
+    <!-- UI DO JOGO -->
+    <div id="scoreContainer" class="hidden">
+        <img src="score.png" alt="Score" id="scoreTitle">
+        <div id="scoreDigits">
+            <img src="0.png" alt="0" id="scoreDigit0">
+            <img src="0.png" alt="0" id="scoreDigit1">
+            <img src="0.png" alt="0" id="scoreDigit2">
+            <img src="0.png" alt="0" id="scoreDigit3">
+            <img src="0.png" alt="0" id="scoreDigit4">
+        </div>
+    </div>
+
     <div id="xpBarContainer" class="hidden">
         <div id="xpBarFill"></div>
         <span id="xpText">XP: 0/10</span>
@@ -58,16 +70,16 @@
 
     <div id="controls" class="hidden">
         <strong>Controles:</strong><br>
-        - WASD/Setas: Mover<br>
+        - WASD: Mover (a nave gira suavemente)<br>
         - Espaço/Mouse: Atirar<br>
         <br>
         <strong>Habilidades (após desbloquear):</strong><br>
-        - Q: Pulso Estático<br>
-        - E: Teleporte de Emergência<br>
-        - R: Lâmina de Energia<br>
+        - U: Pulso Estático<br>
+        - P: Teleporte de Emergência<br>
+        - J: Lâmina de Energia<br>
         - I: Manto de Invisibilidade<br>
         - O: Sobrecarga de Escudo<br>
-        - X: Canhão de Plasma
+        - K: Canhão de Plasma
     </div>
 
     <!-- TELA DE GAME OVER (ATUALIZADA) -->
