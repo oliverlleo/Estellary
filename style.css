@@ -369,6 +369,10 @@ body {
     transform: scale(1.05);
 }
 
+.super-card {
+    animation: pulse-super 1.5s infinite;
+}
+
 #controls {
     position: absolute;
     bottom: 20px;
@@ -423,6 +427,84 @@ body {
     filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.5));
 }
 
+/* MENU DE CHEATS */
+#cheatMenu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 4000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.cheat-menu-content {
+    width: 80%;
+    max-width: 600px;
+    height: 80%;
+    background: #111;
+    border: 2px solid #0f0;
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.cheat-menu-content h2 {
+    text-align: center;
+    color: #0f0;
+    margin-bottom: 20px;
+}
+
+#cheatPowerupList {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    padding-right: 10px; /* Para a barra de rolagem não cobrir o conteúdo */
+}
+
+#cheatPowerupList::-webkit-scrollbar {
+    width: 8px;
+}
+
+#cheatPowerupList::-webkit-scrollbar-track {
+    background: #222;
+}
+
+#cheatPowerupList::-webkit-scrollbar-thumb {
+    background: #0f0;
+    border-radius: 4px;
+}
+
+.cheat-button {
+    width: 100%;
+    padding: 10px;
+    background-color: #222;
+    border: 1px solid #0f0;
+    color: #0f0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cheat-button:hover {
+    background-color: #0f0;
+    color: #000;
+}
+
+#closeCheatMenuBtn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background: #ff4500;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    align-self: center;
+}
 
 @keyframes fadeIn {
     from { opacity: 0; }
@@ -457,6 +539,11 @@ body {
     }
 }
 
+@keyframes pulse-super {
+    0% { border-color: #ff00ff; box-shadow: 0 0 25px rgba(255, 0, 255, 0.7); }
+    50% { border-color: #00ffff; box-shadow: 0 0 35px rgba(0, 255, 255, 0.7); }
+    100% { border-color: #ff00ff; box-shadow: 0 0 25px rgba(255, 0, 255, 0.7); }
+}
 
 @media (max-width: 768px) {
     .card {

@@ -31,6 +31,7 @@
     <!-- ELEMENTOS DO JOGO -->
     <canvas id="gameCanvas" class="hidden"></canvas>
     
+    <!-- UI DO JOGO -->
     <div id="scoreContainer" class="hidden">
         <img src="score.png" alt="Score" id="scoreTitle">
         <div id="scoreDigits">
@@ -65,6 +66,15 @@
     <div id="levelUpScreen" class="hidden">
         <h2>Nível Up! Escolha uma melhoria:</h2>
         <div id="cardContainer"></div>
+    </div>
+
+    <!-- MENU DE CHEATS -->
+    <div id="cheatMenu" class="hidden">
+        <div class="cheat-menu-content">
+            <h2>Menu de Power-ups</h2>
+            <div id="cheatPowerupList"></div>
+            <button id="closeCheatMenuBtn">Fechar</button>
+        </div>
     </div>
 
     <div id="controls" class="hidden">

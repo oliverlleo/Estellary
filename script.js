@@ -34,6 +34,9 @@ window.onload = function() {
     const restartButton = document.getElementById("restartButton");
     const bossHealthBarContainer = document.getElementById("bossHealthBarContainer");
     const bossWarningBorder = document.getElementById("bossWarningBorder");
+    const cheatMenu = document.getElementById("cheatMenu");
+    const cheatPowerupList = document.getElementById("cheatPowerupList");
+    const closeCheatMenuBtn = document.getElementById("closeCheatMenuBtn");
 
     // --- 2. ESTADO INICIAL E VARIÁVEIS GLOBAIS DO JOGO ---
     let animationFrameId = null;
@@ -51,16 +54,16 @@ window.onload = function() {
     const initialPlayerEffects = {
         bifurcatedShot: { active: false, level: 0 },
         plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, cooldownDuration: 360 },
-        missileStorm: { active: false, shotCount: 0 },
+        missileStorm: { active: false, shotCount: 0, shotsNeeded: 10 },
         orbitalDrones: { active: false, drones: [] },
         energyBlade: { active: false, duration: 0, cooldown: 0, angle: 0 },
         ricochetShot: false,
-        chainLightning: false,
-        battleFrenzy: { active: false, stacks: 0, timer: 0 },
+        chainLightning: { active: false, chance: 0.15, bounces: 2, damage: 0.5 },
+        battleFrenzy: { active: false, timer: 0, maxTime: 300 },
         staticPulse: { active: false, cooldown: 0 },
         spectralCannon: false,
-        reactiveShield: { active: false, cooldown: 0, shieldAmount: 0 },
-        repulsionField: false,
+        reactiveShield: { active: false, duration: 0, cooldown: 0 },
+        repulsionField: { active: false, radius: 60, force: 0.2 },
         emergencyTeleport: { active: false, cooldown: 0 },
         nanobotRegeneration: false,
         invisibilityCloak: { active: false, cooldown: 0, duration: 0 },
@@ -70,7 +73,7 @@ window.onload = function() {
     let playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
 
     const player = { x: 0, y: 0, angle: 0, targetAngle: 0, vx: 0, vy: 0, size: 15, invisible: false };
-    const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [];
+    const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [], lightningBolts = [];
     let boss = null, lastSatelliteLaunch = 0, lastBlueMeteorWaveTime = 0;
     const keys = {};
     let mouseDown = false, chargeTime = 0;
@@ -104,18 +107,18 @@ window.onload = function() {
     const cardDatabase = [
         { id: "bifurcated_shot", name: "Tiro Bifurcado", description: "Adiciona +1 projétil ao disparo (máx 4).", type: "attack" },
         { id: "plasma_cannon", name: "Canhão de Plasma", description: "Ativa tiro carregado com 'K'. Upgrades dão +1 carga.", type: "attack" },
-        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Lança mísseis teleguiados.", type: "attack" },
+        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Passivo: Lança mísseis a cada 10 tiros. Upgrades reduzem a contagem.", type: "attack" },
         { id: "orbital_drones", name: "Disparos Orbitais", description: "Gera um drone que dispara.", type: "attack" },
         { id: "energy_blade", name: "Lâmina de Energia", description: "Laser giratório (tecla J).", type: "attack" },
-        { id: "ricochet_shot", name: "Tiro Ricochete", description: "Projéteis ricocheteiam na tela.", type: "attack" },
-        { id: "chain_lightning", name: "Cadeia de Raios", description: "Raio atinge múltiplos inimigos.", type: "attack" },
+        { id: "ricochet_shot", name: "Tiro Ricochete", description: "Projéteis ricocheteiam nas bordas da tela.", type: "attack" },
+        { id: "chain_lightning", name: "Cadeia de Raios", description: "Tiros têm chance de criar um raio que atinge inimigos próximos.", type: "attack" },
         { id: "battle_frenzy", name: "Frenesi de Batalha", description: "Aumenta cadência ao destruir.", type: "attack" },
         { id: "static_pulse", name: "Pulso Estático", description: "Onda de choque (tecla U).", type: "attack" },
         { id: "spectral_cannon", name: "Canhão Espectral", description: "Tiros atravessam inimigos.", type: "attack" },
-        { id: "reactive_shield", name: "Escudo Reativo", description: "Gera escudo ao sofrer dano.", type: "defense" },
+        { id: "reactive_shield", name: "Escudo Reativo", description: "Ao sofrer dano, ganha um escudo temporário.", type: "defense" },
         { id: "maneuver_thrusters", name: "Propulsores de Manobra", description: "Aumenta velocidade de movimento.", type: "defense" },
         { id: "adamantium_plating", name: "Placas de Adamântio", description: "Aumenta vida máxima e armadura.", type: "defense" },
-        { id: "repulsion_field", name: "Campo de Repulsão", description: "Desvia projéteis inimigos.", type: "defense" },
+        { id: "repulsion_field", name: "Campo de Repulsão", description: "Cria um campo que empurra inimigos próximos.", type: "defense" },
         { id: "emergency_teleport", name: "Teleporte de Emergência", description: "Teleporte curto (tecla P).", type: "defense" },
         { id: "nanobot_regeneration", name: "Regeneração de Nanorobôs", description: "Regenera vida lentamente.", type: "defense" },
         { id: "scrap_attraction", name: "Atração de Sucata", description: "Aumenta raio de coleta de XP.", type: "defense" },
@@ -128,7 +131,7 @@ window.onload = function() {
         { id: "target_analyzer", name: "Analisador de Alvos", description: "Aumenta o dano crítico.", type: "attribute" },
         { id: "magnetic_collector", name: "Coletor Magnético", description: "Aumenta o raio de coleta de XP.", type: "attribute" },
         { id: "cooldown_reducer", name: "Redutor de Recarga", description: "Diminui recarga de habilidades.", type: "attribute" },
-        { id: "explorer_luck", name: "Sorte do Explorador", description: "Aumenta a sorte.", type: "attribute" },
+        { id: "explorer_luck", name: "Sorte do Explorador", description: "Aumenta a sorte geral.", type: "attribute" },
         { id: "reinforced_chassis", name: "Chassi Reforçado", description: "Aumenta vida máxima.", type: "health" },
         { id: "armor_plating", name: "Placas de Blindagem", description: "Adiciona armadura.", type: "health" },
         { id: "hull_shield", name: "Escudo de Fuselagem", description: "Converte vida em escudo.", type: "health" }
@@ -200,7 +203,14 @@ window.onload = function() {
             shotSound.volume = 0.5;
             shotSound.play();
         }
-        bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special, rotation: 0 });
+        if (playerEffects.missileStorm.active) {
+            playerEffects.missileStorm.shotCount++;
+            if (playerEffects.missileStorm.shotCount >= playerEffects.missileStorm.shotsNeeded) {
+                launchMissileSalvo();
+                playerEffects.missileStorm.shotCount = 0;
+            }
+        }
+        bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special, rotation: 0, bounced: 0, hitTargets: [] });
     }
 
     function firePlasmaShot() {
@@ -216,10 +226,48 @@ window.onload = function() {
         createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 0.8, playerStats.baseDamage * 3, special);
     }
 
-    function createMissile(x, y) {
-        missiles.push({ x, y, vx: 0, vy: 0, target: null, speed: 6, damage: playerStats.baseDamage * 0.8, life: 300, angle: 0 });
+    function createMissile(x, y, target, initialAngle) {
+        const impulseForce = 4;
+        missiles.push({
+            x, y,
+            target,
+            vx: Math.cos(initialAngle) * impulseForce,
+            vy: Math.sin(initialAngle) * impulseForce,
+            speed: 6,
+            damage: playerStats.baseDamage * 0.8,
+            life: 300,
+            angle: initialAngle,
+            homingDelay: 15
+        });
     }
 
+    function launchMissileSalvo() {
+        const enemies = [...asteroids, ...satellites].filter(e => e.health > 0);
+        enemies.sort((a, b) => Math.hypot(player.x - a.x, player.y - a.y) - Math.hypot(player.x - b.x, player.y - b.y));
+    
+        if (enemies.length === 0) return;
+    
+        const rightOffsetAngle = player.angle + Math.PI / 2;
+        const leftOffsetAngle = player.angle - Math.PI / 2;
+        const spawnDist = 15;
+    
+        const rightSpawnX = player.x + Math.cos(rightOffsetAngle) * spawnDist;
+        const rightSpawnY = player.y + Math.sin(rightOffsetAngle) * spawnDist;
+        const leftSpawnX = player.x + Math.cos(leftOffsetAngle) * spawnDist;
+        const leftSpawnY = player.y + Math.sin(leftOffsetAngle) * spawnDist;
+    
+        const totalMissiles = 8;
+        for (let i = 0; i < totalMissiles; i++) {
+            const target = enemies[i % enemies.length]; // Distribui os mísseis entre os alvos
+            const side = i < totalMissiles / 2 ? -1 : 1; // Metade para cada lado
+            const spawnX = side === -1 ? leftSpawnX : rightSpawnX;
+            const spawnY = side === -1 ? leftSpawnY : rightSpawnY;
+            const randomAngleOffset = (Math.random() - 0.5) * 1.2; 
+            const initialAngle = player.angle + (side * 0.7) + randomAngleOffset;
+            createMissile(spawnX, spawnY, target, initialAngle);
+        }
+    }
+    
     function createXPOrb(x, y, amount) {
         xpOrbs.push({ x, y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, amount, life: 600 });
     }
@@ -326,7 +374,9 @@ window.onload = function() {
                 if (effect.duration > 0) effect.duration--;
             }
         });
-        if (playerEffects.battleFrenzy.timer > 0) playerEffects.battleFrenzy.timer--; else playerEffects.battleFrenzy.stacks = 0;
+        if (playerEffects.battleFrenzy.active && playerEffects.battleFrenzy.timer > 0) {
+            playerEffects.battleFrenzy.timer--;
+        }
         if (playerEffects.nanobotRegeneration && playerStats.health < playerStats.maxHealth) playerStats.health += 0.05;
         if (playerEffects.hullShield.active && playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) playerEffects.hullShield.shield += 0.1;
         playerStats.health = Math.min(playerStats.health, playerStats.maxHealth);
@@ -373,24 +423,47 @@ window.onload = function() {
                 b.rotation += 0.1;
             }
 
-            if (playerEffects.ricochetShot) {
-                if (b.x < 0 || b.x > canvas.width) b.vx *= -1;
-                if (b.y < 0 || b.y > canvas.height) b.vy *= -1;
+            if (playerEffects.ricochetShot && b.bounced < 2) {
+                if ((b.x < 0 || b.x > canvas.width)) { 
+                    b.vx *= -1; 
+                    b.bounced++;
+                }
+                if ((b.y < 0 || b.y > canvas.height)) { 
+                    b.vy *= -1;
+                    b.bounced++;
+                }
             }
+
             if (b.life <= 0) bullets.splice(i, 1);
         }
     }
 
     function updateMissiles() {
-        if (gameState.bossActive) return;
         for (let i = missiles.length - 1; i >= 0; i--) {
             const m = missiles[i];
-            if (!m.target || m.target.health <= 0) m.target = asteroids.reduce((closest, ast) => (Math.hypot(m.x - ast.x, m.y - ast.y) < Math.hypot(m.x - (closest?.x || Infinity), m.y - (closest?.y || Infinity)) ? ast : closest), null);
-            if (m.target) {
-                const angleToTarget = Math.atan2(m.target.y - m.y, m.target.x - m.x);
-                m.vx = Math.cos(angleToTarget) * m.speed; m.vy = Math.sin(angleToTarget) * m.speed; m.angle = angleToTarget;
+    
+            if (m.homingDelay > 0) {
+                m.x += m.vx;
+                m.y += m.vy;
+                m.vx *= 0.98; 
+                m.vy *= 0.98;
+                m.homingDelay--;
+            } else {
+                if (!m.target || m.target.health <= 0) {
+                    m.target = [...asteroids, ...satellites].filter(e => e.health > 0)
+                                 .reduce((closest, ast) => (Math.hypot(m.x - ast.x, m.y - ast.y) < Math.hypot(m.x - (closest?.x || Infinity), m.y - (closest?.y || Infinity)) ? ast : closest), null);
+                }
+                if (m.target) {
+                    const angleToTarget = Math.atan2(m.target.y - m.y, m.target.x - m.x);
+                    m.vx = Math.cos(angleToTarget) * m.speed;
+                    m.vy = Math.sin(angleToTarget) * m.speed;
+                }
             }
-            m.x += m.vx; m.y += m.vy; m.life--;
+    
+            m.angle = Math.atan2(m.vy, m.vx);
+            m.x += m.vx;
+            m.y += m.vy;
+            m.life--;
             if (m.life <= 0) missiles.splice(i, 1);
         }
     }
@@ -569,13 +642,19 @@ window.onload = function() {
 
     function handleAsteroidDestruction(asteroid, index) {
         createParticles(asteroid.x, asteroid.y, 20, "#A9A9A9");
-        createXPOrb(asteroid.x, asteroid.y, asteroid.xpReward);
+        let xpAmount = asteroid.xpReward;
+        if(Math.random() < 0.15 + playerStats.luck) {
+            xpAmount *= 2;
+        }
+        createXPOrb(asteroid.x, asteroid.y, xpAmount);
         gameState.score += asteroid.xpReward;
         updateScoreUI();
         if (asteroid.size === "large") { createAsteroid("medium", asteroid.x, asteroid.y, true); createAsteroid("medium", asteroid.x, asteroid.y, true); }
         else if (asteroid.size === "medium") { for(let i=0; i<4; i++) createAsteroid("small", asteroid.x, asteroid.y, true); }
         asteroids.splice(index, 1);
-        if (playerEffects.battleFrenzy.active) { playerEffects.battleFrenzy.stacks++; playerEffects.battleFrenzy.timer = 300; }
+        if (playerEffects.battleFrenzy.active) { 
+            playerEffects.battleFrenzy.timer = playerEffects.battleFrenzy.maxTime; 
+        }
     }
 
     function updateParticles() {
@@ -619,6 +698,13 @@ window.onload = function() {
             ctx.restore();
         }
 
+        if (playerEffects.reactiveShield.duration > 0) {
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size * 1.3, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(0, 191, 255, ${0.3 + (playerEffects.reactiveShield.duration / 180) * 0.7})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
         if (playerEffects.shieldOvercharge.duration > 0) { ctx.beginPath(); ctx.arc(player.x, player.y, player.size * 1.5, 0, Math.PI * 2); ctx.strokeStyle = `rgba(255, 223, 0, ${0.5 + Math.sin(Date.now() / 100) * 0.2})`; ctx.lineWidth = 4; ctx.stroke(); }
         if (playerEffects.hullShield.active) { ctx.beginPath(); ctx.arc(player.x, player.y, player.size * 1.2, 0, Math.PI * 2 * (playerEffects.hullShield.shield / playerEffects.hullShield.maxShield)); ctx.strokeStyle = "rgba(135, 206, 250, 0.7)"; ctx.lineWidth = 3; ctx.stroke(); }
     }
@@ -707,7 +793,7 @@ window.onload = function() {
     let lastFireTime = 0;
     function fireBullet() {
         const now = Date.now();
-        const fireRateWithBonus = playerStats.fireRate * (1 + playerEffects.battleFrenzy.stacks * 0.1);
+        const fireRateWithBonus = playerEffects.battleFrenzy.active && playerEffects.battleFrenzy.timer > 0 ? playerStats.fireRate * 1.5 : playerStats.fireRate;
         if (now - lastFireTime > 1000 / fireRateWithBonus) {
             let damage = playerStats.baseDamage;
             if (Math.random() < playerStats.critChance) damage *= playerStats.critDamage;
@@ -725,12 +811,22 @@ window.onload = function() {
             }
 
             lastFireTime = now;
-            if (playerEffects.missileStorm.active && ++playerEffects.missileStorm.shotCount >= 10) { createMissile(player.x, player.y); playerEffects.missileStorm.shotCount = 0; }
         }
     }
 
     function takeDamage(amount) {
         if (playerStats.health <= 0) return;
+
+        if (playerEffects.reactiveShield.active && playerEffects.reactiveShield.cooldown <= 0) {
+            playerEffects.reactiveShield.duration = 180;
+            playerEffects.reactiveShield.cooldown = 2700;
+            return; 
+        }
+        
+        if (playerEffects.reactiveShield.duration > 0) {
+             return; 
+        }
+
         const finalDamage = Math.max(0, amount - playerStats.armor);
         if (playerEffects.hullShield.active && playerEffects.hullShield.shield > 0) {
             playerEffects.hullShield.shield -= finalDamage;
@@ -767,19 +863,42 @@ window.onload = function() {
         levelUpScreen.classList.remove("hidden");
         const cardContainer = document.getElementById("cardContainer");
         cardContainer.innerHTML = "";
-        const availableCards = cardDatabase.sort(() => 0.5 - Math.random()).slice(0, 3);
-        availableCards.forEach(card => {
+        
+        let cardPool = [...cardDatabase];
+        let availableCards = [];
+        const isSuperCard = Math.random() < (0.005 + (playerStats.luck * 0.01));
+
+        if(isSuperCard){
             const cardElement = document.createElement("div");
-            cardElement.className = "card";
-            cardElement.innerHTML = `<h3>${card.name}</h3><p>${card.description}</p><button>Escolher</button>`;
+            cardElement.className = "card super-card";
+            cardElement.innerHTML = `<h3>SUPER CARTA!</h3><p>Escolha um power-up duas vezes!</p><button>Escolher</button>`;
             cardContainer.appendChild(cardElement);
             cardElement.querySelector("button").addEventListener("click", () => {
-                applyCardEffect(card);
-                levelUpScreen.classList.add("hidden");
-                gameState.paused = false;
-                gameLoop();
+                showLevelUpScreen(); 
+                showLevelUpScreen(); 
             });
-        });
+
+        } else {
+            for (let i = 0; i < 3; i++) {
+                if (cardPool.length === 0) break;
+                const cardIndex = Math.floor(Math.random() * cardPool.length);
+                availableCards.push(cardPool[cardIndex]);
+                cardPool.splice(cardIndex, 1);
+            }
+    
+            availableCards.forEach(card => {
+                const cardElement = document.createElement("div");
+                cardElement.className = "card";
+                cardElement.innerHTML = `<h3>${card.name}</h3><p>${card.description}</p><button>Escolher</button>`;
+                cardContainer.appendChild(cardElement);
+                cardElement.querySelector("button").addEventListener("click", () => {
+                    applyCardEffect(card);
+                    levelUpScreen.classList.add("hidden");
+                    gameState.paused = false;
+                    gameLoop();
+                });
+            });
+        }
     }
 
     function applyCardEffect(card) {
@@ -796,7 +915,12 @@ window.onload = function() {
                 playerEffects.plasmaCannon.charges++;
                 heatBarContainer.classList.remove('hidden');
                 break;
-            case "missile_storm": playerEffects.missileStorm.active = true; break;
+            case "missile_storm": 
+                playerEffects.missileStorm.active = true;
+                if (playerEffects.missileStorm.shotsNeeded > 2) {
+                    playerEffects.missileStorm.shotsNeeded--;
+                }
+                break;
             case "orbital_drones":
                 playerEffects.orbitalDrones.active = true;
                 const newDroneAngle = Math.random() * Math.PI * 2;
@@ -804,14 +928,14 @@ window.onload = function() {
                 break;
             case "energy_blade": playerEffects.energyBlade.active = true; break;
             case "ricochet_shot": playerEffects.ricochetShot = true; break;
-            case "chain_lightning": playerEffects.chainLightning = true; break;
+            case "chain_lightning": playerEffects.chainLightning.active = true; break;
             case "battle_frenzy": playerEffects.battleFrenzy.active = true; break;
             case "static_pulse": playerEffects.staticPulse.active = true; break;
             case "spectral_cannon": playerEffects.spectralCannon = true; break;
             case "reactive_shield": playerEffects.reactiveShield.active = true; break;
             case "maneuver_thrusters": playerStats.moveSpeed *= 1.25; break;
             case "adamantium_plating": playerStats.maxHealth += 50; playerStats.health += 50; playerStats.armor += 5; break;
-            case "repulsion_field": playerEffects.repulsionField = true; break;
+            case "repulsion_field": playerEffects.repulsionField.active = true; break;
             case "emergency_teleport": playerEffects.emergencyTeleport.active = true; break;
             case "nanobot_regeneration": playerEffects.nanobotRegeneration = true; break;
             case "scrap_attraction": playerStats.xpCollectionRadius *= 1.5; break;
@@ -854,6 +978,7 @@ window.onload = function() {
         bossHealthBarContainer.classList.add('hidden');
         bossWarningBorder.classList.add('hidden');
         heatBarContainer.classList.add('hidden');
+        scoreContainer.classList.add('hidden');
         gameState.paused = false;
         gameState.isGameOver = false;
         gameState.level = 1;
@@ -869,10 +994,6 @@ window.onload = function() {
         asteroids.length = 0; bullets.length = 0; particles.length = 0;
         missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0;
         
-        if (soundEnabled) {
-            gameMusic.currentTime = 0;
-            gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
-        }
         initGame();
     }
 
@@ -1030,6 +1151,9 @@ window.onload = function() {
                 const card = cardDatabase.find(c => c.id === 'bifurcated_shot');
                 if (card) applyCardEffect(card);
                 keySequence = [];
+            } else if (currentSequence.endsWith('0000')) {
+                openCheatMenu();
+                keySequence = [];
             }
         }
 
@@ -1071,6 +1195,31 @@ window.onload = function() {
     document.addEventListener("keyup", (e) => { keys[e.code] = false; if (e.code === "Space") e.preventDefault(); });
     document.addEventListener("mousedown", () => mouseDown = true);
     document.addEventListener("mouseup", () => { mouseDown = false; chargeTime = 0; });
+
+    function openCheatMenu() {
+        if (gameState.paused) return; // Não abre se o jogo já estiver pausado por outro motivo
+        gameState.paused = true;
+        cancelAnimationFrame(animationFrameId);
+        cheatPowerupList.innerHTML = '';
+        cardDatabase.forEach(card => {
+            const btn = document.createElement('button');
+            btn.className = 'cheat-button';
+            btn.textContent = card.name;
+            btn.onclick = () => {
+                applyCardEffect(card);
+            };
+            cheatPowerupList.appendChild(btn);
+        });
+        cheatMenu.classList.remove('hidden');
+    }
+
+    function closeCheatMenu() {
+        cheatMenu.classList.add('hidden');
+        gameState.paused = false;
+        gameLoop();
+    }
+
+    closeCheatMenuBtn.addEventListener('click', closeCheatMenu);
 
     soundPermissionPopup.style.display = 'flex';
 };
