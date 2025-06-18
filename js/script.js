@@ -11,7 +11,7 @@ window.onload = function() {
     const introVideo = document.getElementById("introVideo");
     const introMusic = document.getElementById("introMusic");
     const gameMusic = document.getElementById("gameMusic");
-    const shotSound = document.getElementById("shotSound"); 
+    const shotSound = document.getElementById("shotSound");
     const plasmaSound = document.getElementById("plasmaSound");
     const gameOverSound = document.getElementById("gameOverSound");
     const bossMusic = document.getElementById("bossMusic");
@@ -48,56 +48,129 @@ window.onload = function() {
     const notificationContainer = document.getElementById("notificationContainer");
 
 
+    // --- MELHORIA: CENTRALIZAÇÃO DE CONSTANTES ---
+    // Este objeto centraliza todos os valores numéricos importantes do jogo.
+    // Alterar um valor aqui afeta o jogo inteiro, facilitando o balanceamento e a manutenção.
+    const gameConfig = {
+        // Configurações do Jogador
+        player: {
+            maxHealth: 100,
+            baseDamage: 10,
+            armor: 0,
+            fireRate: 2, // Tiros por segundo
+            moveSpeed: 1.5,
+            critChance: 0.05,
+            critDamage: 1.5, // Multiplicador
+            projectileSpeed: 5.5,
+            projectileRange: 1000, // Em pixels
+            xpCollectionRadius: 100,
+            cooldownReduction: 1, // 1 = 100% (sem redução)
+            rotationSpeed: 0.13,
+            luck: 0.1, // Chance de eventos positivos
+            size: 15,
+            bobbingSpeed: 400, // Velocidade da flutuação
+            bobbingAmount: 2,   // Amplitude da flutuação
+            tiltAmount: 0.25   // Inclinação ao virar
+        },
+        // Configurações dos Asteroides
+        asteroid: {
+            small:  { radius: 15, health: 10,  damage: 15, xpReward: 1 },
+            medium: { radius: 30, health: 40,  damage: 30, xpReward: 5 },
+            large:  { radius: 50, health: 100, damage: 60, xpReward: 7 },
+            baseSpeed: 2
+        },
+        // Configurações dos Chefes
+        boss: {
+            terra: {
+                health: 500,
+                damage: 100,
+                speed: 0.7
+            },
+            mars: {
+                health: 800 * 0.65, // Vida reduzida em 35%
+                damage: 120,
+                speed: 0.4 * 1.2, // 20% mais rápido
+                turretDamage: 15 * 1.3, // Dano aumentado em 30%
+                laserDamagePerFrame: 0.5 * 1.3 // Dano aumentado em 30%
+            }
+        },
+        // Configurações de Habilidades
+        abilities: {
+            plasmaCannon:     { cooldown: 360, damageMultiplier: 3 },
+            energyBlade:      { cooldown: 1200, duration: 600 },
+            staticPulse:      { cooldown: 300, damageMultiplier: 3 },
+            emergencyTeleport:{ cooldown: 180, distance: 150 },
+            invisibilityCloak:{ cooldown: 600, duration: 300 },
+            shieldOvercharge: { cooldown: 600, duration: 180, healthCost: 0.2 },
+            reactiveShield:   { cooldown: 1800, duration: 120 },
+            repulsionField:   { cooldown: 1800, radius: 105, force: 10 }
+        },
+        // Configurações de Pooling de Objetos
+        pooling: {
+            initialBulletPool: 100,
+            initialParticlePool: 300,
+            initialXpOrbPool: 50
+        }
+    };
+
+
     // --- 2. ESTADO INICIAL E VARIÁVEIS GLOBAIS DO JOGO ---
     let animationFrameId = null;
     let soundEnabled = false;
     const gameState = {
-        paused: false,
-        isLevelingUp: false, 
-        level: 1,
-        xp: 0,
-        xpRequired: 5,
-        rerollsAvailableThisLevel: 1,
-        sector: 1,
-        time: 0,
-        score: 0,
-        bossActive: false,
-        postBossMode: false,
-        bossDefeats: 0,
-        isGameOver: false
+        paused: false, isLevelingUp: false, level: 1, xp: 0, xpRequired: 5,
+        rerollsAvailableThisLevel: 1, sector: 1, time: 0, score: 0, bossActive: false,
+        postBossMode: false, bossDefeats: 0, isGameOver: false
     };
+
+    // Os stats do jogador agora são inicializados a partir do gameConfig
     const initialPlayerStats = {
-        maxHealth: 100, health: 100, baseDamage: 10, armor: 0, fireRate: 2, moveSpeed: 1.5,
-        critChance: 0.05, critDamage: 1.5, projectileSpeed: 5.5, projectileRange: 1000,
-        xpCollectionRadius: 100, cooldownReduction: 1, rotationSpeed: 0.13, luck: 0.1
+        maxHealth: gameConfig.player.maxHealth, health: gameConfig.player.maxHealth,
+        baseDamage: gameConfig.player.baseDamage, armor: gameConfig.player.armor,
+        fireRate: gameConfig.player.fireRate, moveSpeed: gameConfig.player.moveSpeed,
+        critChance: gameConfig.player.critChance, critDamage: gameConfig.player.critDamage,
+        projectileSpeed: gameConfig.player.projectileSpeed, projectileRange: gameConfig.player.projectileRange,
+        xpCollectionRadius: gameConfig.player.xpCollectionRadius, cooldownReduction: gameConfig.player.cooldownReduction,
+        rotationSpeed: gameConfig.player.rotationSpeed, luck: gameConfig.player.luck
     };
     let playerStats = { ...initialPlayerStats };
+
     const initialPlayerEffects = {
         bifurcatedShot: { active: false, level: 0 },
-        plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, maxCooldown: 360 },
+        plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, maxCooldown: gameConfig.abilities.plasmaCannon.cooldown },
         missileStorm: { active: false, shotCount: 0, shotsNeeded: 20 },
         orbitalDrones: { active: false, drones: [] },
-        energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: 1200, maxDuration: 600 },
+        energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: gameConfig.abilities.energyBlade.cooldown, maxDuration: gameConfig.abilities.energyBlade.duration },
         ricochetShot: false,
         chainLightning: { active: false, chance: 0.15, bounces: 2, damage: 0.5 },
         battleFrenzy: { active: false, timer: 0, maxTime: 300 },
-        staticPulse: { active: false, cooldown: 0, maxCooldown: 300 },
+        staticPulse: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.staticPulse.cooldown },
         spectralCannon: false,
-        reactiveShield: { active: false, cooldown: 0, maxCooldown: 1800, duration: 0, maxDuration: 120 },
-        repulsionField: { active: false, radius: 105, force: 10, cooldown: 0, maxCooldown: 1800 },
-        emergencyTeleport: { active: false, cooldown: 0, maxCooldown: 180 },
+        reactiveShield: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.reactiveShield.cooldown, duration: 0, maxDuration: gameConfig.abilities.reactiveShield.duration },
+        repulsionField: { active: false, radius: gameConfig.abilities.repulsionField.radius, force: gameConfig.abilities.repulsionField.force, cooldown: 0, maxCooldown: gameConfig.abilities.repulsionField.cooldown },
+        emergencyTeleport: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.emergencyTeleport.cooldown },
         nanobotRegeneration: false,
-        invisibilityCloak: { active: false, cooldown: 0, maxCooldown: 600, duration: 0, maxDuration: 300 },
-        shieldOvercharge: { active: false, cooldown: 0, maxCooldown: 600, duration: 0, maxDuration: 180 },
+        invisibilityCloak: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.invisibilityCloak.cooldown, duration: 0, maxDuration: gameConfig.abilities.invisibilityCloak.duration },
+        shieldOvercharge: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.shieldOvercharge.cooldown, duration: 0, maxDuration: gameConfig.abilities.shieldOvercharge.duration },
         hullShield: { active: false, shield: 0, maxShield: 0 }
     };
     let playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
 
-    const player = { x: 0, y: 0, angle: 0, targetAngle: 0, vx: 0, vy: 0, size: 15, invisible: false };
+    // MELHORIA: Animação da Nave
+    const player = { x: 0, y: 0, angle: 0, targetAngle: 0, vx: 0, vy: 0, size: gameConfig.player.size, invisible: false, bobbingPhase: Math.random() * Math.PI * 2 };
+    
+    // MELHORIA: Pools de Objetos
+    const objectPools = {
+        bullets: [],
+        particles: [],
+        xpOrbs: []
+    };
+    // Arrays para os objetos ativos no jogo
     const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [], lightningBolts = [], bossProjectiles = [];
+    
     let boss = null, lastSatelliteLaunch = 0, lastBlueMeteorWaveTime = 0;
     const keys = {};
-    let mouseDown = false, chargeTime = 0;
+    let mouseDown = false;
 
     let keySequence = [];
     let sequenceTimeout;
@@ -173,17 +246,57 @@ window.onload = function() {
 
     // --- 3. DEFINIÇÕES DE FUNÇÕES ---
 
+    // --- MELHORIA: FUNÇÕES DE OBJECT POOLING ---
+    // Funções para gerenciar a reutilização de objetos, melhorando a performance.
+    function getFromPool(poolName) {
+        const pool = objectPools[poolName];
+        if (pool.length > 0) {
+            const obj = pool.pop();
+            obj.active = true;
+            return obj;
+        }
+        return { active: true }; // Retorna um novo objeto base se o pool estiver vazio
+    }
+
+    function returnToPool(obj, poolName) {
+        obj.active = false;
+        objectPools[poolName].push(obj);
+    }
+    
+    function prewarmPools() {
+        for (let i = 0; i < gameConfig.pooling.initialBulletPool; i++) {
+            objectPools.bullets.push({ active: false });
+        }
+        for (let i = 0; i < gameConfig.pooling.initialParticlePool; i++) {
+            objectPools.particles.push({ active: false });
+        }
+        for (let i = 0; i < gameConfig.pooling.initialXpOrbPool; i++) {
+            objectPools.xpOrbs.push({ active: false });
+        }
+    }
+
+
     function createAsteroid(size, x, y, isFragment = false) {
         const speedMultiplier = 1 + (gameState.bossDefeats * 0.20);
-        const baseSpeed = 2;
+        const baseSpeed = gameConfig.asteroid.baseSpeed;
         const speed = baseSpeed * speedMultiplier;
+        const config = gameConfig.asteroid[size];
+
         const asteroid = { 
             x: x || Math.random() * canvas.width, 
             y: y || Math.random() * canvas.height, 
             angle: Math.random() * Math.PI * 2, 
             angularVelocity: (Math.random() - 0.5) * 0.1, 
-            size: size, isFragment: isFragment, targetSpeed: speed
+            size: size, 
+            isFragment: isFragment, 
+            targetSpeed: speed,
+            radius: config.radius,
+            health: config.health,
+            damage: config.damage,
+            xpReward: config.xpReward,
+            maxHealth: config.health
         };
+
         if (isFragment) {
             const angle = Math.random() * Math.PI * 2;
             const pushSpeed = speed * 2.5;
@@ -193,12 +306,7 @@ window.onload = function() {
             asteroid.vx = (Math.random() - 0.5) * speed; 
             asteroid.vy = (Math.random() - 0.5) * speed; 
         }
-        switch (size) {
-            case "small": asteroid.radius = 15; asteroid.health = 10; asteroid.damage = 15; asteroid.xpReward = 1; break;
-            case "medium": asteroid.radius = 30; asteroid.health = 40; asteroid.damage = 30; asteroid.xpReward = 5; break;
-            case "large": asteroid.radius = 50; asteroid.health = 100; asteroid.damage = 60; asteroid.xpReward = 7; break;
-        }
-        asteroid.maxHealth = asteroid.health;
+
         if (!isFragment && Math.hypot(asteroid.x - player.x, asteroid.y - player.y) < 200) { 
             asteroid.x = player.x + (Math.random() > 0.5 ? 250 : -250); 
             asteroid.y = player.y + (Math.random() > 0.5 ? 250 : -250); 
@@ -214,6 +322,7 @@ window.onload = function() {
         blueMeteors.push({ x: x, y: y, vx: (Math.random() - 0.5) * 2, vy: (2 + Math.random()) * speedMultiplier, radius: radius, damage: 20 });
     }
 
+    // Refatorado para usar Object Pooling
     function createBullet(x, y, angle, speed = playerStats.projectileSpeed, damage = playerStats.baseDamage, special = {}) {
         if (soundEnabled && !special.plasma) {
             shotSound.currentTime = 0;
@@ -227,7 +336,20 @@ window.onload = function() {
                 playerEffects.missileStorm.shotCount = 0;
             }
         }
-        bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special, rotation: 0, bounced: 0, hitTargets: [] });
+        
+        const b = getFromPool('bullets');
+        b.x = x;
+        b.y = y;
+        b.vx = Math.cos(angle) * speed;
+        b.vy = Math.sin(angle) * speed;
+        b.damage = damage;
+        b.life = playerStats.projectileRange / speed;
+        b.special = special;
+        b.rotation = 0;
+        b.bounced = 0;
+        b.hitTargets = [];
+        
+        bullets.push(b);
     }
 
     function createBossProjectile(x, y, vx, vy, damage = 10) {
@@ -244,7 +366,7 @@ window.onload = function() {
             plasma: true, 
             size: player.size * 5 
         };
-        createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 0.8, playerStats.baseDamage * 3, special);
+        createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed * 0.8, playerStats.baseDamage * gameConfig.abilities.plasmaCannon.damageMultiplier, special);
     }
 
     function createMissile(x, y, target, initialAngle) {
@@ -279,8 +401,8 @@ window.onload = function() {
     
         const totalMissiles = 8;
         for (let i = 0; i < totalMissiles; i++) {
-            const target = enemies[i % enemies.length]; // Distribui os mísseis entre os alvos
-            const side = i < totalMissiles / 2 ? -1 : 1; // Metade para cada lado
+            const target = enemies[i % enemies.length];
+            const side = i < totalMissiles / 2 ? -1 : 1;
             const spawnX = side === -1 ? leftSpawnX : rightSpawnX;
             const spawnY = side === -1 ? leftSpawnY : rightSpawnY;
             const randomAngleOffset = (Math.random() - 0.5) * 1.2; 
@@ -289,21 +411,31 @@ window.onload = function() {
         }
     }
     
+    // Refatorado para usar Object Pooling
     function createXPOrb(x, y, amount) {
-        xpOrbs.push({ x, y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, amount, life: 1000 });
+        const orb = getFromPool('xpOrbs');
+        orb.x = x;
+        orb.y = y;
+        orb.vx = (Math.random() - 0.5) * 2;
+        orb.vy = (Math.random() - 0.5) * 2;
+        orb.amount = amount;
+        orb.life = 1000;
+        xpOrbs.push(orb);
     }
 
-    function createParticles(x, y, count, color = "#fff", maxSize = 4) {
+    // MELHORIA: Partículas mais impactantes e com Object Pooling
+    function createParticles(x, y, count, color = "#fff", maxSize = 4, lifeSpan = 20) {
         for (let i = 0; i < count; i++) {
-            particles.push({ 
-                x, y, 
-                vx: (Math.random() - 0.5) * (maxSize * 2), 
-                vy: (Math.random() - 0.5) * (maxSize * 2), 
-                life: 20 + Math.random() * 20, 
-                maxLife: 20 + Math.random() * 20, 
-                color, 
-                size: 1 + Math.random() * (maxSize - 1)
-            });
+            const p = getFromPool('particles');
+            p.x = x;
+            p.y = y;
+            p.vx = (Math.random() - 0.5) * (maxSize * 2);
+            p.vy = (Math.random() - 0.5) * (maxSize * 2);
+            p.life = lifeSpan + Math.random() * lifeSpan;
+            p.maxLife = p.life;
+            p.color = color;
+            p.size = 1 + Math.random() * (maxSize - 1);
+            particles.push(p);
         }
     }
 
@@ -368,14 +500,16 @@ window.onload = function() {
         bossWarningBorder.classList.remove('hidden');
         
         const bossSpeedMultiplier = 1 + (gameState.bossDefeats * 0.20);
+        const healthMultiplier = 1 + gameState.bossDefeats * 0.5;
 
         boss = {
             type: 'terra',
             x: canvas.width / 2, y: -100, vx: 0, vy: 1, hasEntered: false, radius: 80,
-            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.7 * bossSpeedMultiplier,
-            health: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
-            maxHealth: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
-            damage: 100, moon: { angle: 0, distance: 120, radius: 16 }
+            initialVx: gameConfig.boss.terra.speed * bossSpeedMultiplier,
+            health: gameConfig.boss.terra.health * healthMultiplier,
+            maxHealth: gameConfig.boss.terra.health * healthMultiplier,
+            damage: gameConfig.boss.terra.damage,
+            moon: { angle: 0, distance: 120, radius: 16 }
         };
         lastSatelliteLaunch = Date.now();
     }
@@ -392,16 +526,16 @@ window.onload = function() {
         bossHealthText.textContent = "Marte, o Conquistador";
         bossWarningBorder.classList.remove('hidden');
     
-        const bossSpeedMultiplier = 1.2; // 20% faster
-        const marsHealth = (800 * (1 + gameState.bossDefeats * 0.5)) * 0.65; // 35% less health
+        const bossSpeedMultiplier = 1.2;
+        const marsHealth = gameConfig.boss.mars.health * (1 + gameState.bossDefeats * 0.5);
 
         boss = {
             type: 'marte',
             x: canvas.width / 2, y: -100, vx: 0, vy: 1, hasEntered: false, radius: 90,
-            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.4 * bossSpeedMultiplier,
+            initialVx: gameConfig.boss.mars.speed * bossSpeedMultiplier,
             health: marsHealth,
             maxHealth: marsHealth,
-            damage: 120,
+            damage: gameConfig.boss.mars.damage,
             turrets: [
                 { xOffset: -105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 },
                 { xOffset: 105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 }
@@ -546,6 +680,7 @@ window.onload = function() {
         }
     }
 
+    // Refatorado para usar Object Pooling
     function updateBullets() {
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
@@ -555,6 +690,8 @@ window.onload = function() {
 
             if (b.special && b.special.plasma) {
                 b.rotation += 0.1;
+                // Deixa um rastro de partículas
+                createParticles(b.x, b.y, 1, '#00BFFF', 2, 10);
             }
 
             if (playerEffects.ricochetShot && b.bounced < 2) {
@@ -567,8 +704,12 @@ window.onload = function() {
                     b.bounced++;
                 }
             }
-
-            if (b.life <= 0) bullets.splice(i, 1);
+            
+            // Retorna ao pool em vez de deletar
+            if (b.life <= 0) {
+                returnToPool(b, 'bullets');
+                bullets.splice(i, 1);
+            }
         }
         for (let i = bossProjectiles.length - 1; i >= 0; i--) {
             const bp = bossProjectiles[i];
@@ -694,7 +835,6 @@ window.onload = function() {
             if (a.x < -a.radius) a.x = canvas.width + a.radius; if (a.x > canvas.width + a.radius) a.x = -a.radius;
             if (a.y < -a.radius) a.y = canvas.height + a.radius; if (a.y > canvas.height + a.radius) a.y = -a.radius;
             
-            // Asteroid-Asteroid collision
             for (let j = i + 1; j < asteroids.length; j++) {
                 const b = asteroids[j];
                 const dist = Math.hypot(a.x - b.x, a.y - b.y);
@@ -703,7 +843,6 @@ window.onload = function() {
                 }
             }
 
-            // Player-Asteroid collision
             if (!player.invisible && !gameState.isGameOver && !(playerEffects.shieldOvercharge.duration > 0) && Math.hypot(player.x - a.x, player.y - a.y) < a.radius + player.size) {
                 const blocked = takeDamage(a.damage);
                 const angleOfCollision = Math.atan2(player.y - a.y, player.x - a.x);
@@ -722,16 +861,19 @@ window.onload = function() {
                 }
             }
 
-            // Bullet-Asteroid collision
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
+                if (!b.active) continue;
                 if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius) {
                     a.health -= b.damage;
                     if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
                         createLightningBolt(b.x, b.y, a, playerEffects.chainLightning.bounces, b.damage * playerEffects.chainLightning.damage, [a]);
                     }
                     createParticles(b.x, b.y, 3, "#FFD700", 2);
-                    if (!b.special.spectral) bullets.splice(j, 1);
+                    if (!b.special.spectral) {
+                        returnToPool(b, 'bullets');
+                        bullets.splice(j, 1);
+                    }
                     if (a.health <= 0) { handleAsteroidDestruction(a, i); break; }
                 }
             }
@@ -750,7 +892,6 @@ window.onload = function() {
     function updateBoss() {
         if (!boss) return;
 
-        // Common Boss Logic (Movement)
         if (!boss.hasEntered) {
             boss.y += boss.vy;
             if (boss.y >= 150) {
@@ -764,7 +905,6 @@ window.onload = function() {
             }
         }
 
-        // Specific Boss Logic
         if (boss.type === 'terra') {
             updateTerraBoss();
         } else if (boss.type === 'marte') {
@@ -773,9 +913,8 @@ window.onload = function() {
 
         updateBossUI();
 
-        // Common Boss Defeat Logic
         if (boss.health <= 0) {
-            createParticles(boss.x, boss.y, 300, "#ffffff");
+            createParticles(boss.x, boss.y, 300, "#ffffff", 8, 100);
             if (soundEnabled) {
                 bossMusic.pause();
                 gameMusic.currentTime = 0;
@@ -809,6 +948,7 @@ window.onload = function() {
 
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
+            if (!b.active) continue;
             let hit = false;
             if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius) {
                 createParticles(b.x, b.y, 3, "#cccccc", 1.5);
@@ -818,7 +958,10 @@ window.onload = function() {
                 createParticles(b.x, b.y, 5, "#ff4500", 2);
                 hit = true;
             }
-            if (hit && !b.special.spectral) bullets.splice(i, 1);
+            if (hit && !b.special.spectral) {
+                returnToPool(b, 'bullets');
+                bullets.splice(i, 1);
+            }
         }
 
         if (!player.invisible && !gameState.isGameOver) {
@@ -846,7 +989,6 @@ window.onload = function() {
     }
 
     function updateMarsBoss() {
-        // Player collision with Mars body
         if (Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) {
             const blocked = takeDamage(boss.damage);
             if (!blocked) {
@@ -858,20 +1000,18 @@ window.onload = function() {
             }
         }
 
-        // Update Turrets
         boss.turrets.forEach(turret => {
             if (turret.health <= 0) return;
             turret.x = boss.x + turret.xOffset;
-            turret.y = boss.y + turret.yOffset + Math.sin(Date.now() / 400 + turret.animationPhase) * 8; // Floating animation
+            turret.y = boss.y + turret.yOffset + Math.sin(Date.now() / 400 + turret.animationPhase) * 8;
             
             turret.fireCooldown--;
             if (turret.fireCooldown <= 0) {
-                createBossProjectile(turret.x, turret.y, 0, 5, 19.5); // 30% damage increase
+                createBossProjectile(turret.x, turret.y, 0, 5, gameConfig.boss.mars.turretDamage);
                 turret.fireCooldown = turret.fireRate;
             }
         });
         
-        // Update Laser Ships
         boss.laserShips.forEach(ship => {
             if (ship.health <= 0 && ship.state !== 'dead') {
                 ship.state = 'exiting';
@@ -881,57 +1021,26 @@ window.onload = function() {
             const onScreenX = ship.side === 'left' ? 40 : canvas.width - 40;
             const offScreenX = ship.side === 'left' ? -50 : canvas.width + 50;
             
-            if (!ship.initialY) ship.initialY = ship.y; // Set initial Y for floating
-            ship.y = ship.initialY + Math.sin(Date.now() / 600 + ship.animationPhase) * 5; // Floating animation
+            if (!ship.initialY) ship.initialY = ship.y;
+            ship.y = ship.initialY + Math.sin(Date.now() / 600 + ship.animationPhase) * 5;
 
             ship.timer--;
             switch(ship.state) {
-                case 'idle':
-                    if (ship.timer <= 0 && ship.health > 0) {
-                        ship.state = 'entering';
-                        ship.targetX = onScreenX;
-                    }
-                    break;
-                case 'entering':
-                     if (Math.abs(ship.currentX - ship.targetX) < 1) {
-                        ship.state = 'charging';
-                        ship.timer = 120; // 2 seconds charging
-                     }
-                    break;
-                case 'charging':
-                    if (ship.timer <= 0) {
-                        ship.state = 'firing';
-                        ship.timer = 120; // 2 seconds firing
-                        boss.lasers.push({ y: ship.y, life: 120, side: ship.side, originX: ship.currentX });
-                    }
-                    break;
-                case 'firing':
-                     if (ship.timer <= 0) {
-                        ship.state = 'exiting';
-                        ship.targetX = offScreenX;
-                    }
-                    break;
-                case 'exiting':
-                    if (Math.abs(ship.currentX - ship.targetX) < 1) {
-                        if (ship.health > 0) {
-                            ship.state = 'idle';
-                            ship.timer = 420; // 7 seconds cooldown
-                        } else {
-                            ship.state = 'dead';
-                        }
-                    }
-                    break;
+                case 'idle': if (ship.timer <= 0 && ship.health > 0) { ship.state = 'entering'; ship.targetX = onScreenX; } break;
+                case 'entering': if (Math.abs(ship.currentX - ship.targetX) < 1) { ship.state = 'charging'; ship.timer = 120; } break;
+                case 'charging': if (ship.timer <= 0) { ship.state = 'firing'; ship.timer = 120; boss.lasers.push({ y: ship.y, life: 120, side: ship.side, originX: ship.currentX }); } break;
+                case 'firing': if (ship.timer <= 0) { ship.state = 'exiting'; ship.targetX = offScreenX; } break;
+                case 'exiting': if (Math.abs(ship.currentX - ship.targetX) < 1) { if (ship.health > 0) { ship.state = 'idle'; ship.timer = 420; } else { ship.state = 'dead'; } } break;
             }
-            // Animate X position
             ship.currentX += (ship.targetX - ship.currentX) * 0.05;
         });
 
-        // Update active lasers
         for (let i = boss.lasers.length - 1; i >= 0; i--) {
             const laser = boss.lasers[i];
             laser.life--;
-            if (player.y > laser.y - 10 && player.y < laser.y + 10) {
-                if (!takeDamage(0.65)) { // 30% damage increase
+            // CORREÇÃO: Colisão do Laser ajustada para corresponder à área visual (altura de 40px)
+            if (player.y + player.size > laser.y - 20 && player.y - player.size < laser.y + 20) {
+                if (!takeDamage(gameConfig.boss.mars.laserDamagePerFrame)) {
                     createParticles(player.x, laser.y, 2, 'red', 1.5);
                 }
             }
@@ -940,37 +1049,37 @@ window.onload = function() {
             }
         }
         
-        // Player collision with Mars components
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
+            if (!b.active) continue;
             let hit = false;
-            // Hit boss body
             if (!player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius) {
                 boss.health -= b.damage;
                 createParticles(b.x, b.y, 5, "#ff4500", 2);
                 hit = true;
             }
-            // Hit turrets
             boss.turrets.forEach(turret => {
                 if (turret.health > 0 && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius) {
                     turret.health -= b.damage;
                     hit = true;
-                    if(turret.health <= 0) createParticles(turret.x, turret.y, 50, "#FFA500");
+                    if(turret.health <= 0) createParticles(turret.x, turret.y, 50, "#FFA500", 5, 40);
                     else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
                 }
             });
-            // Hit laser ships
             boss.laserShips.forEach(ship => {
                 if (ship.state !== 'idle' && ship.health > 0) {
                     if (Math.hypot(b.x - ship.currentX, b.y - ship.y) < 30) {
                          ship.health -= b.damage;
                          hit = true;
-                         if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500");
+                         if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500", 5, 40);
                          else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
                     }
                 }
             });
-            if (hit && !b.special.spectral) bullets.splice(i, 1);
+            if (hit && !b.special.spectral) {
+                returnToPool(b, 'bullets');
+                bullets.splice(i, 1);
+            }
         }
     }
 
@@ -994,16 +1103,20 @@ window.onload = function() {
             
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
+                if (!b.active) continue;
                 if (!player.invisible && Math.hypot(b.x - s.x, b.y - s.y) < s.radius) {
                     s.health -= b.damage;
                      if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
                         createLightningBolt(b.x, b.y, s, playerEffects.chainLightning.bounces, b.damage * playerEffects.chainLightning.damage, [s]);
                     }
                     createParticles(b.x, b.y, 2, "#ffff00", 1.5);
-                    if(!b.special.spectral) bullets.splice(j, 1);
+                    if(!b.special.spectral) {
+                        returnToPool(b, 'bullets');
+                        bullets.splice(j, 1);
+                    }
 
                     if (s.health <= 0) {
-                        createParticles(s.x, s.y, 15, "#ffa500", 2.5);
+                        createParticles(s.x, s.y, 15, "#ffa500", 2.5, 30);
                         satellites.splice(i, 1);
                         break; 
                     }
@@ -1060,7 +1173,12 @@ window.onload = function() {
     }
 
     function handleAsteroidDestruction(asteroid, index) {
-        createParticles(asteroid.x, asteroid.y, 20, "#A9A9A9", 3);
+        // MELHORIA: Partículas mais impactantes na destruição
+        let particleCount = 20, particleSize = 3, particleLife = 30;
+        if(asteroid.size === "medium") { particleCount = 40; particleSize = 4; particleLife = 40; }
+        if(asteroid.size === "large")  { particleCount = 60; particleSize = 5; particleLife = 50; }
+        createParticles(asteroid.x, asteroid.y, particleCount, "#A9A9A9", particleSize, particleLife);
+
         let xpAmount = asteroid.xpReward;
         if(Math.random() < 0.15 + playerStats.luck) {
             xpAmount *= 2;
@@ -1076,14 +1194,19 @@ window.onload = function() {
         }
     }
 
+    // Refatorado para usar Object Pooling
     function updateParticles() {
         for (let i = particles.length - 1; i >= 0; i--) {
             const p = particles[i];
             p.x += p.vx; p.y += p.vy; p.life--;
-            if (p.life <= 0) particles.splice(i, 1);
+            if (p.life <= 0) {
+                returnToPool(p, 'particles');
+                particles.splice(i, 1);
+            }
         }
     }
-
+    
+    // Refatorado para usar Object Pooling
     function updateXPOrbs() {
         for (let i = xpOrbs.length - 1; i >= 0; i--) {
             const orb = xpOrbs[i];
@@ -1096,31 +1219,45 @@ window.onload = function() {
                 orb.vx *= 0.98; orb.vy *= 0.98;
             }
             orb.x += orb.vx; orb.y += orb.vy;
-            if (dist < 15 && !gameState.isGameOver) { gainXP(orb.amount); xpOrbs.splice(i, 1); }
-            else if (orb.life <= 0) xpOrbs.splice(i, 1);
+            if (dist < 15 && !gameState.isGameOver) { 
+                gainXP(orb.amount);
+                returnToPool(orb, 'xpOrbs');
+                xpOrbs.splice(i, 1); 
+            }
+            else if (orb.life <= 0) {
+                returnToPool(orb, 'xpOrbs');
+                xpOrbs.splice(i, 1);
+            }
         }
     }
 
+    // MELHORIA: Animação de flutuação e inclinação da nave
     function drawPlayer() {
+        ctx.save();
+        
+        // Calcula a posição Y com a flutuação
+        const bobbingY = player.y + Math.sin(Date.now() / gameConfig.player.bobbingSpeed + player.bobbingPhase) * gameConfig.player.bobbingAmount;
+        
+        ctx.translate(player.x, bobbingY);
+
+        // Calcula a inclinação
+        let angleDiff = player.targetAngle - player.angle;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        const tilt = Math.max(-1, Math.min(1, angleDiff * 5)) * gameConfig.player.tiltAmount;
+
+        ctx.rotate(player.angle + tilt);
+        
         if (player.invisible) {
-            ctx.save();
             ctx.globalAlpha = 0.4;
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.angle);
-            ctx.drawImage(playerShipImage, -player.size, -player.size, player.size * 2, player.size * 2);
-            ctx.restore();
-        } else {
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.angle);
-            ctx.drawImage(playerShipImage, -player.size, -player.size, player.size * 2, player.size * 2);
-            ctx.restore();
         }
 
-        // Efeito do escudo reativo
+        ctx.drawImage(playerShipImage, -player.size, -player.size, player.size * 2, player.size * 2);
+        ctx.restore();
+
+        // Efeitos de escudo continuam como antes
         if (playerEffects.reactiveShield.active) {
             if (playerEffects.reactiveShield.duration > 0) {
-                // Desenha o escudo ativo (bloqueando)
                 ctx.save();
                 ctx.beginPath();
                 const activeAlpha = 0.5 + Math.sin(Date.now() / 150) * 0.2;
@@ -1132,7 +1269,6 @@ window.onload = function() {
                 ctx.stroke();
                 ctx.restore();
             } else if (playerEffects.reactiveShield.cooldown <= 0) {
-                // Desenha o indicador de que está pronto
                 ctx.save();
                 ctx.beginPath();
                 const readyAlpha = 0.4 + Math.sin(Date.now() / 250) * 0.2;
@@ -1177,7 +1313,6 @@ window.onload = function() {
             
             ctx.restore();
         }
-        // Draw boss projectiles
         ctx.fillStyle = "red";
         for (const bp of bossProjectiles) {
             ctx.beginPath();
@@ -1228,15 +1363,12 @@ window.onload = function() {
             if (earthImage.loadSuccess !== false) ctx.drawImage(earthImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
             if (moonImage.loadSuccess !== false) ctx.drawImage(moonImage, moonX - boss.moon.radius, moonY - boss.moon.radius, boss.moon.radius * 2, boss.moon.radius * 2);
         } else if (boss.type === 'marte') {
-            // Draw Mars body
             ctx.drawImage(marsImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
-            // Draw Turrets
             boss.turrets.forEach(turret => {
                 if (turret.health > 0) {
                     ctx.drawImage(marsShipImage, turret.x - turret.radius, turret.y - turret.radius, turret.radius * 2, turret.radius * 2);
                 }
             });
-            // Draw Laser Ships and Lasers
             boss.laserShips.forEach(ship => {
                 if(ship.state !== 'idle' && ship.state !== 'dead' && ship.health > 0) {
                     const shipSize = 30;
@@ -1259,7 +1391,7 @@ window.onload = function() {
                 ctx.fillStyle = `rgba(255, 0, 0, ${0.5 * (laser.life / 120)})`;
                 const startX = laser.side === 'left' ? laser.originX : 0;
                 const width = laser.side === 'left' ? canvas.width - laser.originX : laser.originX;
-                ctx.fillRect(startX, laser.y - 10, width, 40); // Laser width doubled
+                ctx.fillRect(startX, laser.y - 20, width, 40); // Corrigido para centralizar o laser
                 ctx.restore();
             });
         }
@@ -1304,7 +1436,7 @@ window.onload = function() {
             if (playerEffects.bifurcatedShot.active) {
                 const numShots = playerEffects.bifurcatedShot.level + 1;
                 const totalAngle = 0.25 * numShots;
-                const damagePerShot = damage * 0.7; // Dano ajustado para tiro bifurcado
+                const damagePerShot = damage * 0.7;
                 for (let i = 0; i < numShots; i++) {
                     const angleOffset = (numShots > 1) ? -totalAngle / 2 + (i * (totalAngle / (numShots - 1))) : 0;
                     createBullet(player.x, player.y, player.angle + angleOffset, playerStats.projectileSpeed, damagePerShot, special);
@@ -1342,7 +1474,6 @@ window.onload = function() {
             playerStats.health -= finalDamage;
         }
 
-        // --- NOVA MELHORIA: EFEITO VISUAL DE DANO ---
         damageFlashEffect.classList.remove('hidden');
         damageFlashEffect.classList.add('active');
         setTimeout(() => {
@@ -1366,7 +1497,7 @@ window.onload = function() {
         gameState.level++; 
         gameState.xp -= gameState.xpRequired; 
         gameState.xpRequired = Math.floor(5 * Math.pow(gameState.level, 1.5));
-        gameState.rerollsAvailableThisLevel = 1; // --- NOVA MELHORIA: Reseta rerolls a cada nível
+        gameState.rerollsAvailableThisLevel = 1;
         playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.20);
         updateUI();
         showLevelUpScreen();
@@ -1377,7 +1508,6 @@ window.onload = function() {
         togglePause(true, { fromLevelUp: true });
         levelUpScreen.classList.remove("hidden");
         
-        // --- NOVA MELHORIA: Lógica do botão Reroll ---
         rerollButton.classList.remove("hidden");
         rerollButton.disabled = gameState.rerollsAvailableThisLevel <= 0;
         rerollButton.textContent = `Rerolar (${gameState.rerollsAvailableThisLevel})`;
@@ -1385,6 +1515,7 @@ window.onload = function() {
         generateCards();
     }
     
+    // MELHORIA: Diferenciação visual das cartas
     function generateCards() {
         const cardContainer = document.getElementById("cardContainer");
         cardContainer.innerHTML = "";
@@ -1392,7 +1523,6 @@ window.onload = function() {
         let cardPool = [...cardDatabase];
         let availableCards = [];
 
-        // Lógica de Super Carta mantida
         const isSuperCard = Math.random() < (0.005 + (playerStats.luck * 0.01));
         if(isSuperCard){
             const cardElement = document.createElement("div");
@@ -1413,7 +1543,7 @@ window.onload = function() {
     
             availableCards.forEach(card => {
                 const cardElement = document.createElement("div");
-                cardElement.className = "card";
+                cardElement.className = `card card-${card.type}`; // Adiciona a classe de tipo
                 cardElement.innerHTML = `<h3>${card.name}</h3><p>${card.description}</p><button>Escolher</button>`;
                 cardContainer.appendChild(cardElement);
                 cardElement.querySelector("button").addEventListener("click", () => {
@@ -1427,28 +1557,27 @@ window.onload = function() {
         }
     }
     
-    // --- NOVA MELHORIA: Função de Notificação ---
     function showNotification(message) {
         const notification = document.createElement('div');
         notification.className = 'notification';
-        notification.innerHTML = message; // Usamos innerHTML para permitir tags como <strong>
+        notification.innerHTML = message;
         notificationContainer.appendChild(notification);
 
         setTimeout(() => {
             notification.remove();
-        }, 4000); // A notificação some após 4 segundos (corresponde à animação CSS)
+        }, 4000);
     }
 
     function addAbilityIcon(effectName, key) {
         const existingIcon = document.getElementById(`icon-${effectName}`);
-        if (existingIcon) return; // Não adiciona se já existe
+        if (existingIcon) return;
 
         const iconContainer = document.createElement('div');
         iconContainer.id = `icon-${effectName}`;
         iconContainer.className = 'ui-icon';
         
         const iconImg = document.createElement('img');
-        iconImg.src = iconImages[effectName] || 'assets/icons/default.png'; // Fallback icon
+        iconImg.src = iconImages[effectName] || 'assets/icons/default.png';
         iconContainer.appendChild(iconImg);
 
         const keyText = document.createElement('span');
@@ -1480,7 +1609,6 @@ window.onload = function() {
 
 
     function applyCardEffect(card) {
-        // --- NOVA MELHORIA: Notificação de desbloqueio ---
         if (card.key && !playerEffects[card.id]?.active) {
             showNotification(`Nova Habilidade: <strong>${card.name}</strong> <br> Pressione '${card.key.toUpperCase()}' para usar!`);
         }
@@ -1576,8 +1704,8 @@ window.onload = function() {
             gameOverSound.play();
         }
 
-        createParticles(player.x, player.y, 150, "#ff4500", 4);
-        createParticles(player.x, player.y, 100, "#ffa500", 3);
+        createParticles(player.x, player.y, 150, "#ff4500", 4, 60);
+        createParticles(player.x, player.y, 100, "#ffa500", 3, 50);
         setTimeout(() => { gameOverScreen.classList.remove('hidden'); }, 1000); 
     }
 
@@ -1590,7 +1718,6 @@ window.onload = function() {
         heatBarContainer.classList.add('hidden');
         damageFlashEffect.classList.add('hidden');
         
-        // Limpa UI de habilidades
         abilityCooldownsContainer.innerHTML = '';
         passivePowerupsContainer.innerHTML = '';
         
@@ -1608,12 +1735,19 @@ window.onload = function() {
         boss = null;
         playerStats = { ...initialPlayerStats };
         playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
+        
+        // Limpa arrays ativos
         asteroids.length = 0; bullets.length = 0; particles.length = 0;
         missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0; lightningBolts.length = 0;
         
+        // Re-inicializa os pools
+        objectPools.bullets = [];
+        objectPools.particles = [];
+        objectPools.xpOrbs = [];
+        prewarmPools();
+        
         initGame();
         
-        // Garante que a música do jogo comece
         if (soundEnabled) {
             bossMusic.pause();
             gameMusic.currentTime = 0;
@@ -1629,7 +1763,6 @@ window.onload = function() {
     }
 
     function updateUI() {
-        // Barras de XP e Vida
         xpBarContainer.querySelector("#xpText").textContent = `NÍVEL ${gameState.level} | XP: ${gameState.xp}/${gameState.xpRequired}`;
         xpBarContainer.querySelector("#xpBarFill").style.width = `${(gameState.xp / gameState.xpRequired) * 100}%`;
         healthBarContainer.querySelector("#healthText").textContent = `HP: ${Math.ceil(playerStats.health)}/${playerStats.maxHealth}`;
@@ -1639,7 +1772,6 @@ window.onload = function() {
         
         updateScoreUI();
 
-        // Barra do Canhão de Plasma
         if (playerEffects.plasmaCannon.active) {
             if (playerEffects.plasmaCannon.cooldown > 0) {
                 const cooldownProgress = 1 - (playerEffects.plasmaCannon.cooldown / (playerEffects.plasmaCannon.maxCooldown * playerStats.cooldownReduction));
@@ -1652,7 +1784,6 @@ window.onload = function() {
             }
         }
         
-        // UI de Recargas de Habilidades
         Object.keys(playerEffects).forEach(effectName => {
             const effect = playerEffects[effectName];
             if (effect.active && effect.maxCooldown) {
@@ -1702,7 +1833,7 @@ window.onload = function() {
             updateParticles();
             updateXPOrbs();
             
-            updateUI(); // Atualiza a UI a cada frame
+            updateUI();
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (backgroundImage.loadSuccess !== false) ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
@@ -1740,12 +1871,37 @@ window.onload = function() {
             }
         } catch (e) {
             console.error("Erro no gameLoop:", e);
-            togglePause(true); // Pausa em caso de erro
+            togglePause(true);
         }
     }
 
     // --- 4. INICIALIZAÇÃO E EVENT LISTENERS ---
     
+    // NOVO: Função para iniciar lutas de chefe para debug
+    /**
+     * Inicia uma luta de chefe específica para fins de teste.
+     * Limpa o campo de jogo e invoca o chefe solicitado.
+     * @param {string} bossType - O tipo de chefe a ser invocado ('terra' ou 'marte').
+     */
+    function startBossFight(bossType) {
+        if (gameState.isGameOver || gameState.bossActive) return;
+
+        // Limpa o campo de jogo
+        asteroids.length = 0;
+        bullets.forEach(b => returnToPool(b, 'bullets'));
+        bullets.length = 0;
+        missiles.length = 0;
+        xpOrbs.forEach(orb => returnToPool(orb, 'xpOrbs'));
+        xpOrbs.length = 0;
+        
+        // Invoca o chefe
+        if (bossType === 'terra') {
+            spawnTerraBoss();
+        } else if (bossType === 'marte') {
+            spawnMarsBoss();
+        }
+    }
+
     function togglePause(shouldPause, options = {}) {
         const { fromLevelUp = false, fromBlur = false } = options;
 
@@ -1756,7 +1912,6 @@ window.onload = function() {
                 pauseMenu.classList.remove('hidden');
             }
         } else if (!shouldPause && gameState.paused) {
-            // Não despausa se a tela de level up estiver aberta
             if (gameState.isLevelingUp) return;
             
             gameState.paused = false;
@@ -1797,6 +1952,7 @@ window.onload = function() {
         for (let i = 0; i < 5; i++) createAsteroid("large");
         updateUI();
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        prewarmPools();
         gameLoop();
     }
 
@@ -1827,7 +1983,6 @@ window.onload = function() {
     resumeButton.addEventListener('click', () => togglePause(false));
     restartFromPauseButton.addEventListener('click', restartGame);
 
-    // --- NOVA MELHORIA: Lógica do botão Reroll ---
     rerollButton.addEventListener("click", () => {
         if (gameState.rerollsAvailableThisLevel > 0) {
             gameState.rerollsAvailableThisLevel--;
@@ -1840,18 +1995,16 @@ window.onload = function() {
     });
 
     document.addEventListener("keydown", (e) => {
-        // Lógica de Pausa com ESC
         if (e.code === 'Escape' && !gameState.isGameOver) {
             e.preventDefault();
             togglePause(!gameState.paused, { fromLevelUp: gameState.isLevelingUp });
         }
         
-        if (gameState.paused && !gameState.isLevelingUp) return; // Ignora outras teclas se o jogo estiver pausado (exceto na tela de level up)
+        if (gameState.paused && !gameState.isLevelingUp) return;
 
         keys[e.code] = true;
         if (e.code === "Space") e.preventDefault();
         
-        // Lógica dos Cheats
         if (!isNaN(e.key)) {
             clearTimeout(sequenceTimeout);
             keySequence.push(e.key);
@@ -1872,7 +2025,6 @@ window.onload = function() {
             }
         }
 
-        // Lógica das Habilidades
         if (!gameState.isGameOver) {
             if (e.code === 'KeyK' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
                 firePlasmaShot();
@@ -1887,12 +2039,13 @@ window.onload = function() {
                 playerEffects.energyBlade.cooldown = playerEffects.energyBlade.maxCooldown * playerStats.cooldownReduction;
             }
             if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown <= 0) {
-                for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * 3; }
+                for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * gameConfig.abilities.staticPulse.damageMultiplier; }
                 createParticles(player.x, player.y, 50, "#FFFF00", 3);
                 playerEffects.staticPulse.cooldown = playerEffects.staticPulse.maxCooldown * playerStats.cooldownReduction;
             }
             if (e.code === "KeyP" && playerEffects.emergencyTeleport.active && playerEffects.emergencyTeleport.cooldown <= 0) {
-                player.x += Math.cos(player.angle) * 150; player.y += Math.sin(player.angle) * 150;
+                player.x += Math.cos(player.angle) * gameConfig.abilities.emergencyTeleport.distance; 
+                player.y += Math.sin(player.angle) * gameConfig.abilities.emergencyTeleport.distance;
                 createParticles(player.x, player.y, 20, "#00FFFF", 2.5);
                 playerEffects.emergencyTeleport.cooldown = playerEffects.emergencyTeleport.maxCooldown * playerStats.cooldownReduction;
             }
@@ -1901,8 +2054,9 @@ window.onload = function() {
                 playerEffects.invisibilityCloak.cooldown = playerEffects.invisibilityCloak.maxCooldown * playerStats.cooldownReduction;
             }
             if (e.code === "KeyO" && playerEffects.shieldOvercharge.active && playerEffects.shieldOvercharge.cooldown <= 0) {
-                if(playerStats.health > playerStats.maxHealth * 0.2) {
-                    takeDamage(playerStats.maxHealth * 0.2);
+                const healthCost = playerStats.maxHealth * gameConfig.abilities.shieldOvercharge.healthCost;
+                if(playerStats.health > healthCost) {
+                    playerStats.health -= healthCost; // Custo em vida
                     playerEffects.shieldOvercharge.duration = playerEffects.shieldOvercharge.maxDuration;
                     playerEffects.shieldOvercharge.cooldown = playerEffects.shieldOvercharge.maxCooldown * playerStats.cooldownReduction;
                 }
@@ -1912,14 +2066,15 @@ window.onload = function() {
     
     document.addEventListener("keyup", (e) => { keys[e.code] = false; if (e.code === "Space") e.preventDefault(); });
     document.addEventListener("mousedown", () => { if(!gameState.paused) mouseDown = true; });
-    document.addEventListener("mouseup", () => { mouseDown = false; chargeTime = 0; });
+    document.addEventListener("mouseup", () => { mouseDown = false; });
 
     function openCheatMenu() {
-        if (gameState.paused) return; // Não abre se já estiver pausado
-        togglePause(true); // Pausa o jogo
-        pauseMenu.classList.add('hidden'); // Garante que o menu de pausa normal esteja escondido
+        if (gameState.paused) return;
+        togglePause(true);
+        pauseMenu.classList.add('hidden');
 
-        cheatPowerupList.innerHTML = '';
+        cheatPowerupList.innerHTML = ''; // Limpa o conteúdo
+        
         cardDatabase.forEach(card => {
             const btn = document.createElement('button');
             btn.className = 'cheat-button';
@@ -1929,19 +2084,43 @@ window.onload = function() {
             };
             cheatPowerupList.appendChild(btn);
         });
+
+        // CORREÇÃO: Adiciona os botões de chefe DENTRO do menu de cheat
+        const separator = document.createElement('div');
+        separator.className = 'cheat-section-title';
+        separator.textContent = '--- Teste de Chefes ---';
+        cheatPowerupList.appendChild(separator);
+
+        const terraBtn = document.createElement('button');
+        terraBtn.className = 'cheat-button boss-cheat';
+        terraBtn.textContent = 'Invocar Terra';
+        terraBtn.onclick = () => {
+            startBossFight('terra');
+            closeCheatMenu();
+        };
+        cheatPowerupList.appendChild(terraBtn);
+
+        const marsBtn = document.createElement('button');
+        marsBtn.className = 'cheat-button boss-cheat';
+        marsBtn.textContent = 'Invocar Marte';
+        marsBtn.onclick = () => {
+            startBossFight('marte');
+            closeCheatMenu();
+        };
+        cheatPowerupList.appendChild(marsBtn);
+
         cheatMenu.classList.remove('hidden');
     }
 
     function closeCheatMenu() {
         cheatMenu.classList.add('hidden');
-        togglePause(false); // Despausa o jogo
+        togglePause(false);
     }
 
     closeCheatMenuBtn.addEventListener('click', closeCheatMenu);
 
     window.addEventListener("resize", resizeCanvas);
     
-    // --- NOVA MELHORIA: Pausa automática ---
     window.addEventListener('blur', () => {
         if (!gameState.isGameOver) {
             togglePause(true, { fromBlur: true });
