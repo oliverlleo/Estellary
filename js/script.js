@@ -62,8 +62,8 @@ window.onload = function() {
         battleFrenzy: { active: false, timer: 0, maxTime: 300 },
         staticPulse: { active: false, cooldown: 0 },
         spectralCannon: false,
-        reactiveShield: { active: false, duration: 0, cooldown: 0 },
-        repulsionField: { active: false, radius: 60, force: 0.2 },
+        reactiveShield: { active: false, cooldown: 0, cooldownDuration: 1800, duration: 0 }, // 1800 frames = 30 segundos
+        repulsionField: { active: false, radius: 105, force: 10, cooldown: 0, cooldownDuration: 1800 }, // 1800 frames = 30 segundos
         emergencyTeleport: { active: false, cooldown: 0 },
         nanobotRegeneration: false,
         invisibilityCloak: { active: false, cooldown: 0, duration: 0 },
@@ -73,7 +73,7 @@ window.onload = function() {
     let playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
 
     const player = { x: 0, y: 0, angle: 0, targetAngle: 0, vx: 0, vy: 0, size: 15, invisible: false };
-    const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [], lightningBolts = [];
+    const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [], lightningBolts = [], bossProjectiles = [];
     let boss = null, lastSatelliteLaunch = 0, lastBlueMeteorWaveTime = 0;
     const keys = {};
     let mouseDown = false, chargeTime = 0;
@@ -96,6 +96,8 @@ window.onload = function() {
     const gameOverMessageImage = new Image(); gameOverMessageImage.src = "assets/images/ruim.png";
     const plasmaShotImage = new Image(); plasmaShotImage.src = "assets/images/esferaplasma.png"; 
     const energyBladeImage = new Image(); energyBladeImage.src = "assets/images/lamina.png"; 
+    const marsImage = new Image(); marsImage.src = "assets/images/marte.png";
+    const marsShipImage = new Image(); marsShipImage.src = "assets/images/navemarte.png";
 
     const numberImages = [];
     for(let i=0; i < 10; i++) {
@@ -111,14 +113,14 @@ window.onload = function() {
         { id: "orbital_drones", name: "Disparos Orbitais", description: "Gera um drone que dispara.", type: "attack" },
         { id: "energy_blade", name: "Lâmina de Energia", description: "Laser giratório (tecla J).", type: "attack" },
         { id: "ricochet_shot", name: "Tiro Ricochete", description: "Projéteis ricocheteiam nas bordas da tela.", type: "attack" },
-        { id: "chain_lightning", name: "Cadeia de Raios", description: "Tiros têm chance de criar um raio que atinge inimigos próximos.", type: "attack" },
+        { id: "chain_lightning", name: "Cadeia de Raios", description: "Seus tiros têm 15% de chance de criar um raio que salta para inimigos. Upgrades adicionam +1 salto.", type: "attack" },
         { id: "battle_frenzy", name: "Frenesi de Batalha", description: "Aumenta cadência ao destruir.", type: "attack" },
         { id: "static_pulse", name: "Pulso Estático", description: "Onda de choque (tecla U).", type: "attack" },
         { id: "spectral_cannon", name: "Canhão Espectral", description: "Tiros atravessam inimigos.", type: "attack" },
-        { id: "reactive_shield", name: "Escudo Reativo", description: "Ao sofrer dano, ganha um escudo temporário.", type: "defense" },
+        { id: "reactive_shield", name: "Escudo Reativo", description: "Ao receber dano, bloqueia todos os ataques por 2 segundos. Recarrega em 30 segundos.", type: "defense" },
         { id: "maneuver_thrusters", name: "Propulsores de Manobra", description: "Aumenta velocidade de movimento.", type: "defense" },
         { id: "adamantium_plating", name: "Placas de Adamântio", description: "Aumenta vida máxima e armadura.", type: "defense" },
-        { id: "repulsion_field", name: "Campo de Repulsão", description: "Cria um campo que empurra inimigos próximos.", type: "defense" },
+        { id: "repulsion_field", name: "Campo de Repulsão", description: "Emite um pulso de repulsão automático. Upgrades diminuem a recarga e aumentam o raio.", type: "defense" },
         { id: "emergency_teleport", name: "Teleporte de Emergência", description: "Teleporte curto (tecla P).", type: "defense" },
         { id: "nanobot_regeneration", name: "Regeneração de Nanorobôs", description: "Regenera vida lentamente.", type: "defense" },
         { id: "scrap_attraction", name: "Atração de Sucata", description: "Aumenta raio de coleta de XP.", type: "defense" },
@@ -198,6 +200,10 @@ window.onload = function() {
         bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: playerStats.projectileRange / speed, special, rotation: 0, bounced: 0, hitTargets: [] });
     }
 
+    function createBossProjectile(x, y, vx, vy, damage = 10) {
+        bossProjectiles.push({ x, y, vx, vy, damage, life: 300, radius: 5 });
+    }
+
     function firePlasmaShot() {
         if (soundEnabled) {
             plasmaSound.currentTime = 0;
@@ -257,32 +263,38 @@ window.onload = function() {
         xpOrbs.push({ x, y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, amount, life: 600 });
     }
 
-    function createParticles(x, y, count, color = "#fff") {
+    function createParticles(x, y, count, color = "#fff", maxSize = 4) {
         for (let i = 0; i < count; i++) {
-            particles.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 30 + Math.random() * 30, maxLife: 30 + Math.random() * 30, color, size: 2 + Math.random() * 3 });
+            particles.push({ 
+                x, y, 
+                vx: (Math.random() - 0.5) * (maxSize * 2), 
+                vy: (Math.random() - 0.5) * (maxSize * 2), 
+                life: 20 + Math.random() * 20, 
+                maxLife: 20 + Math.random() * 20, 
+                color, 
+                size: 1 + Math.random() * (maxSize - 1)
+            });
         }
     }
 
-    function spawnBoss() {
-        if (soundEnabled) {
-            gameMusic.pause();
-            bossMusic.currentTime = 0;
-            bossMusic.play();
-        }
-        gameState.bossActive = true;
-        bossHealthBarContainer.classList.remove('hidden');
-        bossWarningBorder.classList.remove('hidden');
-        
-        const bossSpeedMultiplier = 1 + (gameState.bossDefeats * 0.20);
+    function createLightningBolt(x, y, firstTarget, bounces, damage, alreadyHit) {
+        lightningBolts.push({
+            target: firstTarget,
+            bouncesLeft: bounces,
+            damage: damage,
+            hitTargets: alreadyHit,
+            path: [{x: x, y: y}, {x: firstTarget.x, y: firstTarget.y}],
+            life: 15 
+        });
+        if(firstTarget.health > 0) firstTarget.health -= damage;
+    }
 
-        boss = {
-            x: canvas.width / 2, y: -100, vx: 0, vy: 1, hasEntered: false, radius: 80,
-            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.4 * bossSpeedMultiplier,
-            health: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
-            maxHealth: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
-            damage: 100, moon: { angle: 0, distance: 120, radius: 16 }
-        };
-        lastSatelliteLaunch = Date.now();
+    function spawnNextBoss() {
+        if (gameState.bossDefeats % 2 === 0) {
+            spawnTerraBoss();
+        } else {
+            spawnMarsBoss();
+        }
     }
 
     function createSatellite(x, y, side) {
@@ -312,6 +324,101 @@ window.onload = function() {
             });
         }
     }
+
+    function spawnTerraBoss() {
+        if (soundEnabled) {
+            gameMusic.pause();
+            bossMusic.currentTime = 0;
+            bossMusic.play();
+        }
+        gameState.bossActive = true;
+        bossHealthBarContainer.classList.remove('hidden');
+        bossWarningBorder.classList.remove('hidden');
+        
+        const bossSpeedMultiplier = 1 + (gameState.bossDefeats * 0.20);
+
+        boss = {
+            type: 'terra',
+            x: canvas.width / 2, y: -100, vx: 0, vy: 1, hasEntered: false, radius: 80,
+            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.4 * bossSpeedMultiplier,
+            health: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
+            maxHealth: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
+            damage: 100, moon: { angle: 0, distance: 120, radius: 16 }
+        };
+        lastSatelliteLaunch = Date.now();
+    }
+
+    function spawnMarsBoss() {
+        if (soundEnabled) {
+            gameMusic.pause();
+            bossMusic.currentTime = 0;
+            bossMusic.play();
+        }
+        gameState.bossActive = true;
+        bossHealthBarContainer.classList.remove('hidden');
+        bossWarningBorder.classList.remove('hidden');
+    
+        const bossSpeedMultiplier = 1.2; // 20% faster
+        const marsHealth = (800 * (1 + gameState.bossDefeats * 0.5)) * 0.65; // 35% less health
+
+        boss = {
+            type: 'marte',
+            x: canvas.width / 2, y: -100, vx: 0, vy: 1, hasEntered: false, radius: 90,
+            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.4 * bossSpeedMultiplier,
+            health: marsHealth,
+            maxHealth: marsHealth,
+            damage: 120,
+            turrets: [
+                { xOffset: -105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 },
+                { xOffset: 105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 }
+            ],
+            laserShips: [
+                { side: 'left', initialY: canvas.height / 3, y: canvas.height / 3, health: 150, state: 'idle', timer: 420, animationPhase: Math.random() * Math.PI * 2, currentX: -50, targetX: -50 },
+                { side: 'right', initialY: canvas.height / 3 * 2, y: canvas.height / 3 * 2, health: 150, state: 'idle', timer: 420, animationPhase: Math.random() * Math.PI * 2, currentX: canvas.width + 50, targetX: canvas.width + 50 }
+            ],
+            lasers: []
+        };
+    }
+
+    function activateRepulsionPulse() {
+        // Efeito visual do pulso de repulsão
+        const radius = playerEffects.repulsionField.radius;
+        for(let i = 0; i < 360; i += 10) {
+            const angle = i * Math.PI / 180;
+            const pX = player.x + Math.cos(angle) * radius;
+            const pY = player.y + Math.sin(angle) * radius;
+            createParticles(pX, pY, 1, '#87CEEB');
+        }
+
+        const force = playerEffects.repulsionField.force;
+        const allTargets = [...asteroids, ...satellites, ...blueMeteors];
+
+        allTargets.forEach(target => {
+            const dist = Math.hypot(player.x - target.x, player.y - target.y);
+            if (dist < radius) {
+                const angle = Math.atan2(target.y - player.y, target.x - player.x);
+                target.vx += Math.cos(angle) * force;
+                target.vy += Math.sin(angle) * force;
+                if (target.size && !target.isFragment) {
+                    target.isFragment = true; 
+                }
+            }
+        });
+    }
+    
+    function updateRepulsionField() {
+        if (!playerEffects.repulsionField.active) return;
+        
+        if (playerEffects.repulsionField.cooldown > 0) {
+            playerEffects.repulsionField.cooldown--;
+        }
+        
+        if (playerEffects.repulsionField.cooldown <= 0) {
+            activateRepulsionPulse();
+            playerEffects.repulsionField.cooldown = playerEffects.repulsionField.cooldownDuration * playerStats.cooldownReduction;
+        }
+    }
+
 
     function updatePlayer() {
         player.invisible = playerEffects.invisibilityCloak.duration > 0;
@@ -354,11 +461,16 @@ window.onload = function() {
         }
     
         Object.values(playerEffects).forEach(effect => { 
-            if (effect && typeof effect === 'object') {
-                if (effect.cooldown > 0) effect.cooldown--; 
-                if (effect.duration > 0) effect.duration--;
+            if (effect && typeof effect === 'object' && effect.cooldown > 0) {
+                 effect.cooldown--; 
+            }
+            if (effect && typeof effect === 'object' && effect.duration > 0) {
+                effect.duration--;
             }
         });
+
+        updateRepulsionField(); // Atualiza a habilidade de repulsão a cada frame
+
         if (playerEffects.battleFrenzy.active && playerEffects.battleFrenzy.timer > 0) {
             playerEffects.battleFrenzy.timer--;
         }
@@ -421,6 +533,22 @@ window.onload = function() {
 
             if (b.life <= 0) bullets.splice(i, 1);
         }
+        for (let i = bossProjectiles.length - 1; i >= 0; i--) {
+            const bp = bossProjectiles[i];
+            bp.x += bp.vx;
+            bp.y += bp.vy;
+            bp.life--;
+            if (bp.life <= 0) {
+                bossProjectiles.splice(i, 1);
+                continue;
+            }
+            if (Math.hypot(player.x - bp.x, player.y - bp.y) < player.size + bp.radius) {
+                if (!takeDamage(bp.damage)) {
+                   createParticles(bp.x, bp.y, 5, 'red', 2);
+                }
+                bossProjectiles.splice(i, 1);
+            }
+        }
     }
 
     function updateMissiles() {
@@ -453,8 +581,72 @@ window.onload = function() {
         }
     }
 
+    function updateLightningBolts() {
+        for (let i = lightningBolts.length - 1; i >= 0; i--) {
+            const bolt = lightningBolts[i];
+            bolt.life--;
+
+            if (bolt.life <= 0) {
+                lightningBolts.splice(i, 1);
+                continue;
+            }
+
+            if (bolt.bouncesLeft > 0 && bolt.life < 5) { // Tenta saltar perto do fim da vida do segmento atual
+                const lastTarget = bolt.target;
+                let nextTarget = null;
+                let minDistance = Infinity;
+                const potentialTargets = [...asteroids, ...satellites];
+                if (boss && !bolt.hitTargets.includes(boss)) potentialTargets.push(boss);
+
+                potentialTargets.forEach(pTarget => {
+                    if (pTarget.health > 0 && !bolt.hitTargets.includes(pTarget)) {
+                        const distance = Math.hypot(lastTarget.x - pTarget.x, lastTarget.y - pTarget.y);
+                        if (distance < minDistance && distance < 350) { // Distância máxima do salto
+                            minDistance = distance;
+                            nextTarget = pTarget;
+                        }
+                    }
+                });
+
+                if (nextTarget) {
+                    if(nextTarget.health > 0) nextTarget.health -= bolt.damage;
+                    bolt.hitTargets.push(nextTarget);
+                    bolt.target = nextTarget;
+                    bolt.bouncesLeft--;
+                    bolt.path.push({x: nextTarget.x, y: nextTarget.y});
+                    bolt.life = 15; // Reseta a vida para o novo segmento ser visível
+                }
+            }
+        }
+    }
+
+    function resolveAsteroidCollision(a, b) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const distance = Math.hypot(dx, dy);
+
+        const angle = Math.atan2(dy, dx);
+        
+        const baseSpeed = (a.targetSpeed + b.targetSpeed) / 2 * 1.15;
+        
+        a.vx = -Math.cos(angle) * baseSpeed;
+        a.vy = -Math.sin(angle) * baseSpeed;
+        b.vx = Math.cos(angle) * baseSpeed;
+        b.vy = Math.sin(angle) * baseSpeed;
+
+        const overlap = (a.radius + b.radius) - distance;
+        if (overlap > 0) {
+            const separationX = (overlap / 2 + 0.1) * Math.cos(angle);
+            const separationY = (overlap / 2 + 0.1) * Math.sin(angle);
+            a.x -= separationX;
+            a.y -= separationY;
+            b.x += separationX;
+            b.y += separationY;
+        }
+    }
+
     function updateAsteroids() {
-        if (asteroids.length === 0 && !gameState.bossActive && boss === null) spawnBoss();
+        if (asteroids.length === 0 && !gameState.bossActive && boss === null) spawnNextBoss();
         for (let i = asteroids.length - 1; i >= 0; i--) {
             const a = asteroids[i];
             if (a.isFragment) {
@@ -464,21 +656,44 @@ window.onload = function() {
             a.x += a.vx; a.y += a.vy; a.angle += a.angularVelocity;
             if (a.x < -a.radius) a.x = canvas.width + a.radius; if (a.x > canvas.width + a.radius) a.x = -a.radius;
             if (a.y < -a.radius) a.y = canvas.height + a.radius; if (a.y > canvas.height + a.radius) a.y = -a.radius;
+            
+            // Asteroid-Asteroid collision
+            for (let j = i + 1; j < asteroids.length; j++) {
+                const b = asteroids[j];
+                const dist = Math.hypot(a.x - b.x, a.y - b.y);
+                if (dist < a.radius + b.radius) {
+                    resolveAsteroidCollision(a, b);
+                }
+            }
+
+            // Player-Asteroid collision
             if (!player.invisible && !gameState.isGameOver && !(playerEffects.shieldOvercharge.duration > 0) && Math.hypot(player.x - a.x, player.y - a.y) < a.radius + player.size) {
-                takeDamage(a.damage);
-                createParticles(player.x, player.y, 15, "#ff8c00");
+                const blocked = takeDamage(a.damage);
                 const angleOfCollision = Math.atan2(player.y - a.y, player.x - a.x);
                 const pushForce = 2;
-                player.vx += Math.cos(angleOfCollision) * pushForce;
-                player.vy += Math.sin(angleOfCollision) * pushForce;
+                const weakPushForce = 0.5;
+
                 a.vx -= Math.cos(angleOfCollision) * pushForce;
                 a.vy -= Math.sin(angleOfCollision) * pushForce;
+                if (blocked) {
+                    player.vx += Math.cos(angleOfCollision) * weakPushForce;
+                    player.vy += Math.sin(angleOfCollision) * weakPushForce;
+                } else {
+                    createParticles(player.x, player.y, 15, "#ff8c00", 3);
+                    player.vx += Math.cos(angleOfCollision) * pushForce;
+                    player.vy += Math.sin(angleOfCollision) * pushForce;
+                }
             }
+
+            // Bullet-Asteroid collision
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
                 if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius) {
                     a.health -= b.damage;
-                    createParticles(b.x, b.y, 5, "#FFD700");
+                    if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
+                        createLightningBolt(b.x, b.y, a, playerEffects.chainLightning.bounces, b.damage * playerEffects.chainLightning.damage, [a]);
+                    }
+                    createParticles(b.x, b.y, 3, "#FFD700", 2);
                     if (!b.special.spectral) bullets.splice(j, 1);
                     if (a.health <= 0) { handleAsteroidDestruction(a, i); break; }
                 }
@@ -487,7 +702,7 @@ window.onload = function() {
             for (let j = missiles.length - 1; j >= 0; j--) {
                 if (Math.hypot(missiles[j].x - a.x, missiles[j].y - a.y) < a.radius) {
                     a.health -= missiles[j].damage;
-                    createParticles(missiles[j].x, missiles[j].y, 10, "#FF4500");
+                    createParticles(missiles[j].x, missiles[j].y, 10, "#FF4500", 2.5);
                     missiles.splice(j, 1);
                     if (a.health <= 0) { handleAsteroidDestruction(a, i); break; }
                 }
@@ -497,6 +712,8 @@ window.onload = function() {
 
     function updateBoss() {
         if (!boss) return;
+
+        // Common Boss Logic (Movement)
         if (!boss.hasEntered) {
             boss.y += boss.vy;
             if (boss.y >= 150) {
@@ -505,8 +722,43 @@ window.onload = function() {
             }
         } else {
             boss.x += boss.vx;
-            if (boss.x - boss.radius < 0 || boss.x + boss.radius > canvas.width) boss.vx *= -1;
+            if (boss.x - boss.radius < 0 || boss.x + boss.radius > canvas.width) {
+                boss.vx *= -1;
+            }
         }
+
+        // Specific Boss Logic
+        if (boss.type === 'terra') {
+            updateTerraBoss();
+        } else if (boss.type === 'marte') {
+            updateMarsBoss();
+        }
+
+        updateBossUI();
+
+        // Common Boss Defeat Logic
+        if (boss.health <= 0) {
+            createParticles(boss.x, boss.y, 300, "#ffffff");
+            if (soundEnabled) {
+                bossMusic.pause();
+                gameMusic.currentTime = 0;
+                gameMusic.play();
+            }
+            gameState.bossActive = false;
+            boss = null;
+            satellites.length = 0; 
+            bossProjectiles.length = 0;
+            bossHealthBarContainer.classList.add('hidden');
+            bossWarningBorder.classList.add('hidden');
+            gameState.postBossMode = true;
+            gameState.bossDefeats++;
+            lastBlueMeteorWaveTime = Date.now();
+            const asteroidsToSpawn = 7 + gameState.bossDefeats;
+            for (let i = 0; i < asteroidsToSpawn; i++) createAsteroid("large");
+        }
+    }
+
+    function updateTerraBoss() {
         boss.moon.angle += 0.02;
         const moonX = boss.x + Math.cos(boss.moon.angle) * boss.moon.distance;
         const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
@@ -522,37 +774,166 @@ window.onload = function() {
             const b = bullets[i];
             let hit = false;
             if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius) {
-                createParticles(b.x, b.y, 3, "#cccccc");
+                createParticles(b.x, b.y, 3, "#cccccc", 1.5);
                 hit = true;
             } else if (!player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius) {
                 boss.health -= b.damage;
-                createParticles(b.x, b.y, 5, "#ff4500");
+                createParticles(b.x, b.y, 5, "#ff4500", 2);
                 hit = true;
             }
-            if (hit) bullets.splice(i, 1);
+            if (hit && !b.special.spectral) bullets.splice(i, 1);
         }
+
         if (!player.invisible && !gameState.isGameOver) {
-            if (Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) takeDamage(boss.damage);
-            if (Math.hypot(player.x - moonX, player.y - moonY) < boss.moon.radius + player.size) takeDamage(50);
-        }
-        updateBossUI();
-        if (boss.health <= 0) {
-            createParticles(boss.x, boss.y, 300, "#ffffff");
-            if (soundEnabled) {
-                bossMusic.pause();
-                gameMusic.currentTime = 0;
-                gameMusic.play();
+            if (Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) {
+                 const blocked = takeDamage(boss.damage);
+                 if (!blocked) {
+                    const angleOfCollision = Math.atan2(player.y - boss.y, player.x - boss.x);
+                    const pushForce = 4;
+                    player.vx += Math.cos(angleOfCollision) * pushForce;
+                    player.vy += Math.sin(angleOfCollision) * pushForce;
+                    createParticles(player.x, player.y, 20, "#ff4500", 3);
+                 }
             }
-            gameState.bossActive = false;
-            boss = null;
-            satellites.length = 0; 
-            bossHealthBarContainer.classList.add('hidden');
-            bossWarningBorder.classList.add('hidden');
-            gameState.postBossMode = true;
-            gameState.bossDefeats++;
-            lastBlueMeteorWaveTime = Date.now();
-            const asteroidsToSpawn = 7 + gameState.bossDefeats;
-            for (let i = 0; i < asteroidsToSpawn; i++) createAsteroid("large");
+            if (Math.hypot(player.x - moonX, player.y - moonY) < boss.moon.radius + player.size) {
+                 const blocked = takeDamage(50);
+                 if (!blocked) {
+                    const angleOfCollision = Math.atan2(player.y - moonY, player.x - moonX);
+                    const pushForce = 3;
+                    player.vx += Math.cos(angleOfCollision) * pushForce;
+                    player.vy += Math.sin(angleOfCollision) * pushForce;
+                    createParticles(player.x, player.y, 10, "#cccccc", 2.5);
+                 }
+            }
+        }
+    }
+
+    function updateMarsBoss() {
+        // Player collision with Mars body
+        if (Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) {
+            const blocked = takeDamage(boss.damage);
+            if (!blocked) {
+               const angleOfCollision = Math.atan2(player.y - boss.y, player.x - boss.x);
+               const pushForce = 4;
+               player.vx += Math.cos(angleOfCollision) * pushForce;
+               player.vy += Math.sin(angleOfCollision) * pushForce;
+               createParticles(player.x, player.y, 20, "#ff4500", 3);
+            }
+        }
+
+        // Update Turrets
+        boss.turrets.forEach(turret => {
+            if (turret.health <= 0) return;
+            turret.x = boss.x + turret.xOffset;
+            turret.y = boss.y + turret.yOffset + Math.sin(Date.now() / 400 + turret.animationPhase) * 8; // Floating animation
+            
+            turret.fireCooldown--;
+            if (turret.fireCooldown <= 0) {
+                createBossProjectile(turret.x, turret.y, 0, 5, 19.5); // 30% damage increase
+                turret.fireCooldown = turret.fireRate;
+            }
+        });
+        
+        // Update Laser Ships
+        boss.laserShips.forEach(ship => {
+            if (ship.health <= 0 && ship.state !== 'dead') {
+                ship.state = 'exiting';
+                ship.targetX = ship.side === 'left' ? -50 : canvas.width + 50;
+            }
+
+            const onScreenX = ship.side === 'left' ? 40 : canvas.width - 40;
+            const offScreenX = ship.side === 'left' ? -50 : canvas.width + 50;
+            
+            if (!ship.initialY) ship.initialY = ship.y; // Set initial Y for floating
+            ship.y = ship.initialY + Math.sin(Date.now() / 600 + ship.animationPhase) * 5; // Floating animation
+
+            ship.timer--;
+            switch(ship.state) {
+                case 'idle':
+                    if (ship.timer <= 0 && ship.health > 0) {
+                        ship.state = 'entering';
+                        ship.targetX = onScreenX;
+                    }
+                    break;
+                case 'entering':
+                     if (Math.abs(ship.currentX - ship.targetX) < 1) {
+                        ship.state = 'charging';
+                        ship.timer = 120; // 2 seconds charging
+                     }
+                    break;
+                case 'charging':
+                    if (ship.timer <= 0) {
+                        ship.state = 'firing';
+                        ship.timer = 120; // 2 seconds firing
+                        boss.lasers.push({ y: ship.y, life: 120, side: ship.side, originX: ship.currentX });
+                    }
+                    break;
+                case 'firing':
+                     if (ship.timer <= 0) {
+                        ship.state = 'exiting';
+                        ship.targetX = offScreenX;
+                    }
+                    break;
+                case 'exiting':
+                    if (Math.abs(ship.currentX - ship.targetX) < 1) {
+                        if (ship.health > 0) {
+                            ship.state = 'idle';
+                            ship.timer = 420; // 7 seconds cooldown
+                        } else {
+                            ship.state = 'dead';
+                        }
+                    }
+                    break;
+            }
+            // Animate X position
+            ship.currentX += (ship.targetX - ship.currentX) * 0.05;
+        });
+
+        // Update active lasers
+        for (let i = boss.lasers.length - 1; i >= 0; i--) {
+            const laser = boss.lasers[i];
+            laser.life--;
+            if (player.y > laser.y - 10 && player.y < laser.y + 10) {
+                if (!takeDamage(0.65)) { // 30% damage increase
+                    createParticles(player.x, laser.y, 2, 'red', 1.5);
+                }
+            }
+            if (laser.life <= 0) {
+                boss.lasers.splice(i, 1);
+            }
+        }
+        
+        // Player collision with Mars components
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const b = bullets[i];
+            let hit = false;
+            // Hit boss body
+            if (!player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius) {
+                boss.health -= b.damage;
+                createParticles(b.x, b.y, 5, "#ff4500", 2);
+                hit = true;
+            }
+            // Hit turrets
+            boss.turrets.forEach(turret => {
+                if (turret.health > 0 && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius) {
+                    turret.health -= b.damage;
+                    hit = true;
+                    if(turret.health <= 0) createParticles(turret.x, turret.y, 50, "#FFA500");
+                    else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
+                }
+            });
+            // Hit laser ships
+            boss.laserShips.forEach(ship => {
+                if (ship.state !== 'idle' && ship.health > 0) {
+                    if (Math.hypot(b.x - ship.currentX, b.y - ship.y) < 30) {
+                         ship.health -= b.damage;
+                         hit = true;
+                         if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500");
+                         else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
+                    }
+                }
+            });
+            if (hit && !b.special.spectral) bullets.splice(i, 1);
         }
     }
 
@@ -578,10 +959,14 @@ window.onload = function() {
                 const b = bullets[j];
                 if (!player.invisible && Math.hypot(b.x - s.x, b.y - s.y) < s.radius) {
                     s.health -= b.damage;
-                    createParticles(b.x, b.y, 3, "#ffff00");
-                    bullets.splice(j, 1);
+                     if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
+                        createLightningBolt(b.x, b.y, s, playerEffects.chainLightning.bounces, b.damage * playerEffects.chainLightning.damage, [s]);
+                    }
+                    createParticles(b.x, b.y, 2, "#ffff00", 1.5);
+                    if(!b.special.spectral) bullets.splice(j, 1);
+
                     if (s.health <= 0) {
-                        createParticles(s.x, s.y, 15, "#ffa500");
+                        createParticles(s.x, s.y, 15, "#ffa500", 2.5);
                         satellites.splice(i, 1);
                         break; 
                     }
@@ -596,8 +981,14 @@ window.onload = function() {
                 const distCenter = Math.hypot(player.x - s.x, player.y - s.y);
                 const distNose = Math.hypot(noseX - s.x, noseY - s.y);
                 if (distCenter < s.radius + player.size * 0.8 || distNose < s.radius + player.size * 0.5) {
-                    takeDamage(s.damage);
-                    createParticles(s.x, s.y, 10, "#ffff00");
+                    const blocked = takeDamage(s.damage);
+                    if (!blocked) {
+                        const angleOfCollision = Math.atan2(player.y - s.y, player.x - s.x);
+                        const pushForce = 1.5;
+                        player.vx += Math.cos(angleOfCollision) * pushForce;
+                        player.vy += Math.sin(angleOfCollision) * pushForce;
+                        createParticles(s.x, s.y, 10, "#ffff00", 2.5);
+                    }
                     satellites.splice(i, 1);
                     continue; 
                 }
@@ -616,8 +1007,14 @@ window.onload = function() {
             const bm = blueMeteors[i];
             bm.x += bm.vx; bm.y += bm.vy;
             if (!player.invisible && !gameState.isGameOver && Math.hypot(player.x - bm.x, player.y - bm.y) < bm.radius + player.size) {
-                takeDamage(bm.damage);
-                createParticles(bm.x, bm.y, 15, "#00BFFF");
+                const blocked = takeDamage(bm.damage);
+                if (!blocked) {
+                    const angleOfCollision = Math.atan2(player.y - bm.y, player.x - bm.x);
+                    const pushForce = 1.5;
+                    player.vx += Math.cos(angleOfCollision) * pushForce;
+                    player.vy += Math.sin(angleOfCollision) * pushForce;
+                    createParticles(bm.x, bm.y, 15, "#00BFFF", 2.5);
+                }
                 blueMeteors.splice(i, 1);
                 continue;
             }
@@ -626,7 +1023,7 @@ window.onload = function() {
     }
 
     function handleAsteroidDestruction(asteroid, index) {
-        createParticles(asteroid.x, asteroid.y, 20, "#A9A9A9");
+        createParticles(asteroid.x, asteroid.y, 20, "#A9A9A9", 3);
         let xpAmount = asteroid.xpReward;
         if(Math.random() < 0.15 + playerStats.luck) {
             xpAmount *= 2;
@@ -683,13 +1080,33 @@ window.onload = function() {
             ctx.restore();
         }
 
-        if (playerEffects.reactiveShield.duration > 0) {
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.size * 1.3, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(0, 191, 255, ${0.3 + (playerEffects.reactiveShield.duration / 180) * 0.7})`;
-            ctx.lineWidth = 3;
-            ctx.stroke();
+        // Efeito do escudo reativo
+        if (playerEffects.reactiveShield.active) {
+            if (playerEffects.reactiveShield.duration > 0) {
+                // Desenha o escudo ativo (bloqueando)
+                ctx.save();
+                ctx.beginPath();
+                const activeAlpha = 0.5 + Math.sin(Date.now() / 150) * 0.2;
+                ctx.arc(player.x, player.y, player.size * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 191, 255, ${activeAlpha * 0.4})`;
+                ctx.fill();
+                ctx.strokeStyle = `rgba(0, 191, 255, ${activeAlpha})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+            } else if (playerEffects.reactiveShield.cooldown <= 0) {
+                // Desenha o indicador de que está pronto
+                ctx.save();
+                ctx.beginPath();
+                const readyAlpha = 0.4 + Math.sin(Date.now() / 250) * 0.2;
+                ctx.arc(player.x, player.y, player.size * 1.4, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 191, 255, ${readyAlpha})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+            }
         }
+
         if (playerEffects.shieldOvercharge.duration > 0) { ctx.beginPath(); ctx.arc(player.x, player.y, player.size * 1.5, 0, Math.PI * 2); ctx.strokeStyle = `rgba(255, 223, 0, ${0.5 + Math.sin(Date.now() / 100) * 0.2})`; ctx.lineWidth = 4; ctx.stroke(); }
         if (playerEffects.hullShield.active) { ctx.beginPath(); ctx.arc(player.x, player.y, player.size * 1.2, 0, Math.PI * 2 * (playerEffects.hullShield.shield / playerEffects.hullShield.maxShield)); ctx.strokeStyle = "rgba(135, 206, 250, 0.7)"; ctx.lineWidth = 3; ctx.stroke(); }
     }
@@ -723,6 +1140,13 @@ window.onload = function() {
             
             ctx.restore();
         }
+        // Draw boss projectiles
+        ctx.fillStyle = "red";
+        for (const bp of bossProjectiles) {
+            ctx.beginPath();
+            ctx.arc(bp.x, bp.y, bp.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     function drawMissiles() { for (const m of missiles) { ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.angle); ctx.fillStyle = "orange"; ctx.fillRect(-5, -2, 10, 4); ctx.restore(); } }
@@ -730,6 +1154,25 @@ window.onload = function() {
     function drawXPOrbs() { for (const orb of xpOrbs) { ctx.fillStyle = "#00FF00"; ctx.beginPath(); ctx.arc(orb.x, orb.y, 5, 0, Math.PI * 2); ctx.fill(); } }
 
     function drawParticles() { for (const p of particles) { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2); ctx.fill(); } }
+
+    function drawLightningBolts() {
+        ctx.save();
+        for (const bolt of lightningBolts) {
+            ctx.strokeStyle = `rgba(0, 255, 255, ${bolt.life / 15 * 0.8})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            if(bolt.path.length > 0) ctx.moveTo(bolt.path[0].x, bolt.path[0].y);
+            for(let j = 1; j < bolt.path.length; j++) {
+                const startNode = bolt.path[j-1];
+                const endNode = bolt.path[j];
+                const midX = (startNode.x + endNode.x) / 2 + (Math.random() - 0.5) * 20;
+                const midY = (startNode.y + endNode.y) / 2 + (Math.random() - 0.5) * 20;
+                ctx.quadraticCurveTo(midX, midY, endNode.x, endNode.y);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
 
     function drawAsteroids() {
         for (const a of asteroids) {
@@ -742,10 +1185,47 @@ window.onload = function() {
 
     function drawBoss() {
         if (!boss) return;
-        const moonX = boss.x + Math.cos(boss.moon.angle) * boss.moon.distance;
-        const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
-        if (earthImage.loadSuccess !== false) ctx.drawImage(earthImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
-        if (moonImage.loadSuccess !== false) ctx.drawImage(moonImage, moonX - boss.moon.radius, moonY - boss.moon.radius, boss.moon.radius * 2, boss.moon.radius * 2);
+        if (boss.type === 'terra') {
+            const moonX = boss.x + Math.cos(boss.moon.angle) * boss.moon.distance;
+            const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
+            if (earthImage.loadSuccess !== false) ctx.drawImage(earthImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
+            if (moonImage.loadSuccess !== false) ctx.drawImage(moonImage, moonX - boss.moon.radius, moonY - boss.moon.radius, boss.moon.radius * 2, boss.moon.radius * 2);
+        } else if (boss.type === 'marte') {
+            // Draw Mars body
+            ctx.drawImage(marsImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
+            // Draw Turrets
+            boss.turrets.forEach(turret => {
+                if (turret.health > 0) {
+                    ctx.drawImage(marsShipImage, turret.x - turret.radius, turret.y - turret.radius, turret.radius * 2, turret.radius * 2);
+                }
+            });
+            // Draw Laser Ships and Lasers
+            boss.laserShips.forEach(ship => {
+                if(ship.state !== 'idle' && ship.state !== 'dead' && ship.health > 0) {
+                    const shipSize = 30;
+                    ctx.save();
+                    ctx.translate(ship.currentX, ship.y);
+                    if (ship.side === 'left') {
+                        ctx.scale(-1, 1);
+                    }
+                    if(ship.state === 'charging'){
+                        const glow = Math.abs(Math.sin(ship.timer * 0.1)) * 10;
+                        ctx.shadowColor = "red";
+                        ctx.shadowBlur = 10 + glow;
+                    }
+                    ctx.drawImage(marsShipImage, -shipSize, -shipSize, shipSize*2, shipSize*2);
+                    ctx.restore();
+                }
+            });
+            boss.lasers.forEach(laser => {
+                ctx.save();
+                ctx.fillStyle = `rgba(255, 0, 0, ${0.5 * (laser.life / 120)})`;
+                const startX = laser.side === 'left' ? laser.originX : 0;
+                const width = laser.side === 'left' ? canvas.width - laser.originX : laser.originX;
+                ctx.fillRect(startX, laser.y - 10, width, 20); // Laser width doubled
+                ctx.restore();
+            });
+        }
     }
 
     function drawSatellites() {
@@ -800,18 +1280,21 @@ window.onload = function() {
     }
 
     function takeDamage(amount) {
-        if (playerStats.health <= 0) return;
+        if (playerStats.health <= 0) return false;
 
+        // Se o escudo estiver em sua duração ativa, bloqueie o dano
+        if (playerEffects.reactiveShield.duration > 0) {
+            return true; // Dano bloqueado
+        }
+    
+        // Se o escudo estiver pronto (sem cooldown) e o jogador for atingido, ative-o
         if (playerEffects.reactiveShield.active && playerEffects.reactiveShield.cooldown <= 0) {
-            playerEffects.reactiveShield.duration = 180;
-            playerEffects.reactiveShield.cooldown = 2700;
-            return; 
+            playerEffects.reactiveShield.duration = 120; // Ativa por 2 segundos (120 frames)
+            playerEffects.reactiveShield.cooldown = playerEffects.reactiveShield.cooldownDuration * playerStats.cooldownReduction;
+            createParticles(player.x, player.y, 40, "#00BFFF", 2.5); // Efeito visual de ativação
+            return true; // Bloqueia o dano que ativou o escudo
         }
         
-        if (playerEffects.reactiveShield.duration > 0) {
-             return; 
-        }
-
         const finalDamage = Math.max(0, amount - playerStats.armor);
         if (playerEffects.hullShield.active && playerEffects.hullShield.shield > 0) {
             playerEffects.hullShield.shield -= finalDamage;
@@ -824,6 +1307,7 @@ window.onload = function() {
         }
         if (playerStats.health <= 0) { playerStats.health = 0; gameOver(); }
         updateUI();
+        return false; // Dano não foi bloqueado
     }
 
     function gainXP(amount) {
@@ -913,14 +1397,21 @@ window.onload = function() {
                 break;
             case "energy_blade": playerEffects.energyBlade.active = true; break;
             case "ricochet_shot": playerEffects.ricochetShot = true; break;
-            case "chain_lightning": playerEffects.chainLightning.active = true; break;
+            case "chain_lightning": 
+                playerEffects.chainLightning.active = true; 
+                playerEffects.chainLightning.bounces++;
+                break;
             case "battle_frenzy": playerEffects.battleFrenzy.active = true; break;
             case "static_pulse": playerEffects.staticPulse.active = true; break;
             case "spectral_cannon": playerEffects.spectralCannon = true; break;
             case "reactive_shield": playerEffects.reactiveShield.active = true; break;
             case "maneuver_thrusters": playerStats.moveSpeed *= 1.25; break;
             case "adamantium_plating": playerStats.maxHealth += 50; playerStats.health += 50; playerStats.armor += 5; break;
-            case "repulsion_field": playerEffects.repulsionField.active = true; break;
+            case "repulsion_field": 
+                playerEffects.repulsionField.active = true; 
+                playerEffects.repulsionField.cooldownDuration *= 0.85; // Reduz em 15%
+                playerEffects.repulsionField.radius += 35;
+                break;
             case "emergency_teleport": playerEffects.emergencyTeleport.active = true; break;
             case "nanobot_regeneration": playerEffects.nanobotRegeneration = true; break;
             case "scrap_attraction": playerStats.xpCollectionRadius *= 1.5; break;
@@ -952,8 +1443,8 @@ window.onload = function() {
             gameOverSound.play();
         }
 
-        createParticles(player.x, player.y, 150, "#ff4500");
-        createParticles(player.x, player.y, 100, "#ffa500");
+        createParticles(player.x, player.y, 150, "#ff4500", 4);
+        createParticles(player.x, player.y, 100, "#ffa500", 3);
         setTimeout(() => { gameOverScreen.classList.remove('hidden'); }, 1000); 
     }
 
@@ -977,7 +1468,7 @@ window.onload = function() {
         playerStats = { ...initialPlayerStats };
         playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
         asteroids.length = 0; bullets.length = 0; particles.length = 0;
-        missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0;
+        missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0; lightningBolts.length = 0;
         
         initGame();
     }
@@ -1032,7 +1523,13 @@ window.onload = function() {
             }
             updateBullets();
             updateMissiles();
-            if (gameState.bossActive) { updateBoss(); updateSatellites(); } else { updateAsteroids(); }
+            updateLightningBolts();
+            if (gameState.bossActive) { 
+                updateBoss();
+                if(boss && boss.type === 'terra') updateSatellites();
+            } else { 
+                updateAsteroids();
+            }
             if (gameState.postBossMode) updateBlueMeteors();
             updateParticles();
             updateXPOrbs();
@@ -1043,6 +1540,7 @@ window.onload = function() {
             drawBullets();
             drawMissiles();
             drawXPOrbs();
+            drawLightningBolts();
             drawAsteroids();
             drawBoss();
             drawSatellites();
@@ -1095,60 +1593,6 @@ window.onload = function() {
 
     allowSoundBtn.addEventListener('click', () => startIntro(true));
     denySoundBtn.addEventListener('click', () => startIntro(false));
-
-    function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-
-    function initGame() {
-        resizeCanvas();
-        window.addEventListener("resize", resizeCanvas);
-        player.x = canvas.width / 2;
-        player.y = canvas.height / 2;
-        player.invisible = false; 
-        asteroids.length = 0;
-        for (let i = 0; i < 5; i++) createAsteroid("large");
-        updateUI();
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        gameLoop();
-    }
-
-    function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-
-    function initGame() {
-        resizeCanvas();
-        window.addEventListener("resize", resizeCanvas);
-        player.x = canvas.width / 2;
-        player.y = canvas.height / 2;
-        player.invisible = false; 
-        asteroids.length = 0;
-        for (let i = 0; i < 5; i++) createAsteroid("large");
-        updateUI();
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        gameLoop();
-    }
-
-    function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-
-    function initGame() {
-        resizeCanvas();
-        window.addEventListener("resize", resizeCanvas);
-        player.x = canvas.width / 2;
-        player.y = canvas.height / 2;
-        player.invisible = false; 
-        asteroids.length = 0;
-        for (let i = 0; i < 5; i++) createAsteroid("large");
-        updateUI();
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        gameLoop();
-    }
 
     function resizeCanvas() {
         canvas.width = window.innerWidth;
@@ -1229,12 +1673,12 @@ window.onload = function() {
             }
             if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown === 0) {
                 for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * 3; }
-                createParticles(player.x, player.y, 50, "#FFFF00");
+                createParticles(player.x, player.y, 50, "#FFFF00", 3);
                 playerEffects.staticPulse.cooldown = 300 * playerStats.cooldownReduction;
             }
             if (e.code === "KeyP" && playerEffects.emergencyTeleport.active && playerEffects.emergencyTeleport.cooldown === 0) {
                 player.x += Math.cos(player.angle) * 150; player.y += Math.sin(player.angle) * 150;
-                createParticles(player.x, player.y, 20, "#00FFFF");
+                createParticles(player.x, player.y, 20, "#00FFFF", 2.5);
                 playerEffects.emergencyTeleport.cooldown = 180 * playerStats.cooldownReduction;
             }
             if (e.code === "KeyI" && playerEffects.invisibilityCloak.active && playerEffects.invisibilityCloak.cooldown === 0) {
