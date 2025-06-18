@@ -332,6 +332,7 @@ window.onload = function() {
             bossMusic.play();
         }
         gameState.bossActive = true;
+        gameState.postBossMode = false;
         bossHealthBarContainer.classList.remove('hidden');
         bossWarningBorder.classList.remove('hidden');
         
@@ -355,6 +356,7 @@ window.onload = function() {
             bossMusic.play();
         }
         gameState.bossActive = true;
+        gameState.postBossMode = false;
         bossHealthBarContainer.classList.remove('hidden');
         bossWarningBorder.classList.remove('hidden');
     
