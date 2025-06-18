@@ -67,9 +67,9 @@ window.onload = function() {
         isGameOver: false
     };
     const initialPlayerStats = {
-        maxHealth: 100, health: 100, baseDamage: 10, armor: 0, fireRate: 4, moveSpeed: 1.5,
-        critChance: 0.05, critDamage: 1.5, projectileSpeed: 8, projectileRange: 1000,
-        xpCollectionRadius: 100, cooldownReduction: 1, rotationSpeed: 0.13, luck: 0
+        maxHealth: 100, health: 100, baseDamage: 10, armor: 0, fireRate: 2, moveSpeed: 1.5,
+        critChance: 0.05, critDamage: 1.5, projectileSpeed: 5.5, projectileRange: 1000,
+        xpCollectionRadius: 100, cooldownReduction: 1, rotationSpeed: 0.13, luck: 0.1
     };
     let playerStats = { ...initialPlayerStats };
     const initialPlayerEffects = {
@@ -290,7 +290,7 @@ window.onload = function() {
     }
     
     function createXPOrb(x, y, amount) {
-        xpOrbs.push({ x, y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, amount, life: 600 });
+        xpOrbs.push({ x, y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, amount, life: 1000 });
     }
 
     function createParticles(x, y, count, color = "#fff", maxSize = 4) {
@@ -372,7 +372,7 @@ window.onload = function() {
         boss = {
             type: 'terra',
             x: canvas.width / 2, y: -100, vx: 0, vy: 1, hasEntered: false, radius: 80,
-            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.4 * bossSpeedMultiplier,
+            initialVx: (Math.random() > 0.5 ? 1 : -1) * 0.7 * bossSpeedMultiplier,
             health: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
             maxHealth: (500 * (1 + gameState.bossDefeats * 0.5)) * 0.7,
             damage: 100, moon: { angle: 0, distance: 120, radius: 16 }
@@ -1259,7 +1259,7 @@ window.onload = function() {
                 ctx.fillStyle = `rgba(255, 0, 0, ${0.5 * (laser.life / 120)})`;
                 const startX = laser.side === 'left' ? laser.originX : 0;
                 const width = laser.side === 'left' ? canvas.width - laser.originX : laser.originX;
-                ctx.fillRect(startX, laser.y - 10, width, 20); // Laser width doubled
+                ctx.fillRect(startX, laser.y - 10, width, 40); // Laser width doubled
                 ctx.restore();
             });
         }
