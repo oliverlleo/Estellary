@@ -29,6 +29,7 @@ window.onload = function() {
     const heatBarFill = document.getElementById("heatBarFill");
     const heatText = document.getElementById("heatText");
     const levelUpScreen = document.getElementById("levelUpScreen");
+    const rerollButton = document.getElementById("rerollButton");
     const controls = document.getElementById("controls");
     const gameOverScreen = document.getElementById("gameOverScreen");
     const restartButton = document.getElementById("restartButton");
@@ -43,16 +44,20 @@ window.onload = function() {
     const restartFromPauseButton = document.getElementById("restartFromPauseButton");
     const abilityCooldownsContainer = document.getElementById("abilityCooldownsContainer");
     const passivePowerupsContainer = document.getElementById("passivePowerupsContainer");
+    const damageFlashEffect = document.getElementById("damageFlashEffect");
+    const notificationContainer = document.getElementById("notificationContainer");
+
 
     // --- 2. ESTADO INICIAL E VARIÁVEIS GLOBAIS DO JOGO ---
     let animationFrameId = null;
     let soundEnabled = false;
     const gameState = {
         paused: false,
-        isLevelingUp: false, // Flag para controlar o estado de level up
+        isLevelingUp: false, 
         level: 1,
         xp: 0,
         xpRequired: 5,
+        rerollsAvailableThisLevel: 1,
         sector: 1,
         time: 0,
         score: 0,
@@ -70,7 +75,7 @@ window.onload = function() {
     const initialPlayerEffects = {
         bifurcatedShot: { active: false, level: 0 },
         plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, maxCooldown: 360 },
-        missileStorm: { active: false, shotCount: 0, shotsNeeded: 10 },
+        missileStorm: { active: false, shotCount: 0, shotsNeeded: 20 },
         orbitalDrones: { active: false, drones: [] },
         energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: 1200, maxDuration: 600 },
         ricochetShot: false,
@@ -250,7 +255,7 @@ window.onload = function() {
             vx: Math.cos(initialAngle) * impulseForce,
             vy: Math.sin(initialAngle) * impulseForce,
             speed: 6,
-            damage: playerStats.baseDamage * 0.8,
+            damage: playerStats.baseDamage * 0.5,
             life: 300,
             angle: initialAngle,
             homingDelay: 15
@@ -343,7 +348,7 @@ window.onload = function() {
                 x: spawnX, y: spawnY,
                 vx: Math.cos(impulseAngle) * impulseForce,
                 vy: Math.sin(impulseAngle) * impulseForce,
-                speed: 1.2 * 1.15,
+                speed: 1.8,
                 radius: 20, damage: 20, health: 10,
                 isElite: false, homingDelay: 45
             });
@@ -1336,6 +1341,15 @@ window.onload = function() {
         } else {
             playerStats.health -= finalDamage;
         }
+
+        // --- NOVA MELHORIA: EFEITO VISUAL DE DANO ---
+        damageFlashEffect.classList.remove('hidden');
+        damageFlashEffect.classList.add('active');
+        setTimeout(() => {
+            damageFlashEffect.classList.remove('active');
+        }, 200);
+
+
         if (playerStats.health <= 0) { playerStats.health = 0; gameOver(); }
         updateUI();
         return false;
@@ -1352,6 +1366,7 @@ window.onload = function() {
         gameState.level++; 
         gameState.xp -= gameState.xpRequired; 
         gameState.xpRequired = Math.floor(5 * Math.pow(gameState.level, 1.5));
+        gameState.rerollsAvailableThisLevel = 1; // --- NOVA MELHORIA: Reseta rerolls a cada nível
         playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.20);
         updateUI();
         showLevelUpScreen();
@@ -1359,15 +1374,26 @@ window.onload = function() {
 
     function showLevelUpScreen() {
         gameState.isLevelingUp = true;
-        togglePause(true);
+        togglePause(true, { fromLevelUp: true });
         levelUpScreen.classList.remove("hidden");
+        
+        // --- NOVA MELHORIA: Lógica do botão Reroll ---
+        rerollButton.classList.remove("hidden");
+        rerollButton.disabled = gameState.rerollsAvailableThisLevel <= 0;
+        rerollButton.textContent = `Rerolar (${gameState.rerollsAvailableThisLevel})`;
+
+        generateCards();
+    }
+    
+    function generateCards() {
         const cardContainer = document.getElementById("cardContainer");
         cardContainer.innerHTML = "";
         
         let cardPool = [...cardDatabase];
         let availableCards = [];
-        const isSuperCard = Math.random() < (0.005 + (playerStats.luck * 0.01));
 
+        // Lógica de Super Carta mantida
+        const isSuperCard = Math.random() < (0.005 + (playerStats.luck * 0.01));
         if(isSuperCard){
             const cardElement = document.createElement("div");
             cardElement.className = "card super-card";
@@ -1377,7 +1403,6 @@ window.onload = function() {
                 showLevelUpScreen(); 
                 showLevelUpScreen(); 
             });
-
         } else {
             for (let i = 0; i < 3; i++) {
                 if (cardPool.length === 0) break;
@@ -1394,6 +1419,7 @@ window.onload = function() {
                 cardElement.querySelector("button").addEventListener("click", () => {
                     applyCardEffect(card);
                     levelUpScreen.classList.add("hidden");
+                    rerollButton.classList.add("hidden");
                     gameState.isLevelingUp = false;
                     togglePause(false);
                 });
@@ -1401,6 +1427,18 @@ window.onload = function() {
         }
     }
     
+    // --- NOVA MELHORIA: Função de Notificação ---
+    function showNotification(message) {
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.innerHTML = message; // Usamos innerHTML para permitir tags como <strong>
+        notificationContainer.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 4000); // A notificação some após 4 segundos (corresponde à animação CSS)
+    }
+
     function addAbilityIcon(effectName, key) {
         const existingIcon = document.getElementById(`icon-${effectName}`);
         if (existingIcon) return; // Não adiciona se já existe
@@ -1442,6 +1480,11 @@ window.onload = function() {
 
 
     function applyCardEffect(card) {
+        // --- NOVA MELHORIA: Notificação de desbloqueio ---
+        if (card.key && !playerEffects[card.id]?.active) {
+            showNotification(`Nova Habilidade: <strong>${card.name}</strong> <br> Pressione '${card.key.toUpperCase()}' para usar!`);
+        }
+
         switch(card.id) {
             case "bifurcated_shot":
                 playerEffects.bifurcatedShot.active = true;
@@ -1545,6 +1588,7 @@ window.onload = function() {
         bossHealthBarContainer.classList.add('hidden');
         bossWarningBorder.classList.add('hidden');
         heatBarContainer.classList.add('hidden');
+        damageFlashEffect.classList.add('hidden');
         
         // Limpa UI de habilidades
         abilityCooldownsContainer.innerHTML = '';
@@ -1556,6 +1600,7 @@ window.onload = function() {
         gameState.level = 1;
         gameState.xp = 0;
         gameState.xpRequired = 5;
+        gameState.rerollsAvailableThisLevel = 1;
         gameState.score = 0;
         gameState.bossActive = false;
         gameState.postBossMode = false;
@@ -1701,15 +1746,19 @@ window.onload = function() {
 
     // --- 4. INICIALIZAÇÃO E EVENT LISTENERS ---
     
-    function togglePause(shouldPause) {
+    function togglePause(shouldPause, options = {}) {
+        const { fromLevelUp = false, fromBlur = false } = options;
+
         if (shouldPause && !gameState.paused) {
             gameState.paused = true;
             cancelAnimationFrame(animationFrameId);
-            // Só mostra o menu de pausa se não estiver na tela de level up
-            if (!gameState.isLevelingUp) {
+            if (!fromLevelUp) {
                 pauseMenu.classList.remove('hidden');
             }
         } else if (!shouldPause && gameState.paused) {
+            // Não despausa se a tela de level up estiver aberta
+            if (gameState.isLevelingUp) return;
+            
             gameState.paused = false;
             pauseMenu.classList.add('hidden');
             gameLoop();
@@ -1760,6 +1809,7 @@ window.onload = function() {
         scoreContainer.classList.remove("hidden");
         abilityCooldownsContainer.classList.remove("hidden");
         passivePowerupsContainer.classList.remove("hidden");
+        damageFlashEffect.classList.remove('hidden');
         introMusic.pause();
         if (soundEnabled) {
             gameMusic.currentTime = 0;
@@ -1777,14 +1827,26 @@ window.onload = function() {
     resumeButton.addEventListener('click', () => togglePause(false));
     restartFromPauseButton.addEventListener('click', restartGame);
 
+    // --- NOVA MELHORIA: Lógica do botão Reroll ---
+    rerollButton.addEventListener("click", () => {
+        if (gameState.rerollsAvailableThisLevel > 0) {
+            gameState.rerollsAvailableThisLevel--;
+            rerollButton.textContent = `Rerolar (${gameState.rerollsAvailableThisLevel})`;
+            generateCards();
+            if (gameState.rerollsAvailableThisLevel <= 0) {
+                rerollButton.disabled = true;
+            }
+        }
+    });
+
     document.addEventListener("keydown", (e) => {
         // Lógica de Pausa com ESC
-        if (e.code === 'Escape' && !gameState.isGameOver && !gameState.isLevelingUp) {
+        if (e.code === 'Escape' && !gameState.isGameOver) {
             e.preventDefault();
-            togglePause(!gameState.paused);
+            togglePause(!gameState.paused, { fromLevelUp: gameState.isLevelingUp });
         }
         
-        if (gameState.paused) return; // Ignora outras teclas se o jogo estiver pausado
+        if (gameState.paused && !gameState.isLevelingUp) return; // Ignora outras teclas se o jogo estiver pausado (exceto na tela de level up)
 
         keys[e.code] = true;
         if (e.code === "Space") e.preventDefault();
@@ -1878,5 +1940,13 @@ window.onload = function() {
     closeCheatMenuBtn.addEventListener('click', closeCheatMenu);
 
     window.addEventListener("resize", resizeCanvas);
+    
+    // --- NOVA MELHORIA: Pausa automática ---
+    window.addEventListener('blur', () => {
+        if (!gameState.isGameOver) {
+            togglePause(true, { fromBlur: true });
+        }
+    });
+    
     soundPermissionPopup.style.display = 'flex';
 };
