@@ -3,15 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Chosen Palette: Galactic Night -->
-    <!-- Application Structure Plan: A single-page application with a tab-based navigation ('Destaques', 'Balanceamento', 'Correções'). This structure prioritizes user experience by presenting the most exciting content (highlights) first, while keeping detailed changes organized and easily accessible. This avoids a long, overwhelming scroll and allows users to quickly jump to the information they care about most. Interactions include tab switching and tooltips on complex new mechanics to provide layered information without cluttering the UI. -->
-    <!-- Visualization & Content Choices: 
-        - Highlights Tab: Uses cards with icons (HTML/CSS) for a visually engaging summary. The new boss 'Marte' is detailed with interactive icons and tooltips to explain its mechanics without overwhelming the user. The endgame loop is represented by a simple, clear flowchart made with styled divs, which is more intuitive than a text list.
-        - Balancing Tab: Uses structured lists with color-coding (green for buffs, red for nerfs) and icons (↑/↓) for at-a-glance understanding of the changes, which is more effective than a plain table.
-        - Fixes Tab: Separates bug fixes and visual improvements into two distinct lists, each with a relevant emoji icon (🐛/🎨), making the section scannable and easy to parse.
-        - Justification: These choices translate the static text of the report into an interactive, easily digestible format that aligns with modern web design principles and enhances user understanding. All visuals are created using HTML, Tailwind CSS, and Unicode characters, strictly adhering to the no-SVG/Mermaid constraint. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
-    <title>Estellary v1.2 - Notas da Atualização</title>
+    <title>Estellary v1.4 - Notas da Atualização</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -45,6 +37,7 @@
         }
         .tab-content.active {
             display: block;
+            animation: fadeIn 0.5s ease-in-out;
         }
         .glass-card {
             background: rgba(31, 41, 55, 0.5);
@@ -58,19 +51,9 @@
             color: #6B7280;
             margin: 0 1rem;
         }
-        .tooltip {
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.3s;
-            position: absolute;
-            bottom: 110%;
-            left: 50%;
-            transform: translateX(-50%);
-            white-space: nowrap;
-        }
-        .has-tooltip:hover .tooltip {
-            visibility: visible;
-            opacity: 1;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -79,74 +62,59 @@
     <div class="container mx-auto p-4 md:p-8 max-w-5xl">
         <!-- Header -->
         <header class="text-center mb-8 md:mb-12 border-b border-gray-700 pb-6">
-            <h1 class="text-4xl md:text-5xl font-bold font-orbitron text-white">🚀 ESTELLARY v1.2 🚀</h1>
-            <p class="text-gray-400 mt-2">📅 18 de Junho de 2025  |  🏗️ Build: v1.2.0-beta</p>
+            <h1 class="text-4xl md:text-5xl font-bold font-orbitron text-white">🚀 ESTELLARY v1.4 🚀</h1>
+            <p class="text-gray-400 mt-2">📅 18 de Junho de 2025  |  🏗️ Build: v1.4.0-qol</p>
             <p class="text-lg text-gray-300 mt-4 max-w-3xl mx-auto">
-                Esta atualização foca em enriquecer a jogabilidade com novas mecânicas, correções críticas e a introdução de um novo chefe desafiador.
+                Esta atualização foca em melhorias de Qualidade de Vida (QoL), balanceamento fino e maior clareza para o jogador.
             </p>
         </header>
 
         <!-- Tab Navigation -->
         <nav class="flex justify-center border-b-2 border-gray-800 mb-8">
-            <button data-tab="highlights" class="tab-button active text-lg font-bold py-2 px-6 text-gray-300 hover:text-white">🌟 Destaques</button>
+            <button data-tab="highlights" class="tab-button active text-lg font-bold py-2 px-6 text-gray-300 hover:text-white">🌟 Destaques de QoL</button>
             <button data-tab="balancing" class="tab-button text-lg font-bold py-2 px-6 text-gray-300 hover:text-white">⚖️ Balanceamento</button>
             <button data-tab="fixes" class="tab-button text-lg font-bold py-2 px-6 text-gray-300 hover:text-white">🛠️ Correções</button>
         </nav>
 
         <main>
             <!-- Highlights Tab Content -->
-            <div id="highlights" class="tab-content active animate-fade-in">
+            <div id="highlights" class="tab-content active">
                 <section>
-                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-emerald-400">Novo Chefe: Marte, o Conquistador</h2>
-                    <div class="glass-card p-6 grid md:grid-cols-2 gap-6 items-center">
-                        <div class="space-y-4">
-                            <p class="text-lg">Uma nova ameaça surge no setor! Prepare-se para enfrentar **Marte**, um guardião com comportamento agressivo e mecânicas únicas.</p>
-                            <ul class="list-none space-y-3">
-                                <li><span class="text-red-400 font-bold">🏃 Comportamento:</span> Move-se 20% mais rápido que a Terra.</li>
-                                <li class="relative has-tooltip">
-                                    <span class="text-red-400 font-bold">💥 Mecânica 1:</span> Torretas Acopladas
-                                    <div class="tooltip bg-gray-900 text-white text-sm rounded py-1 px-3 shadow-lg">Disparam projéteis continuamente.</div>
-                                </li>
-                                <li class="relative has-tooltip">
-                                    <span class="text-red-400 font-bold">💥 Mecânica 2:</span> Naves de Laser
-                                    <div class="tooltip bg-gray-900 text-white text-sm rounded py-1 px-3 shadow-lg">Disparam um laser horizontal devastador.</div>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="flex justify-center items-center text-9xl text-red-500">
-                            👹
-                        </div>
-                    </div>
-                </section>
-
-                <section class="mt-12">
-                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-emerald-400">Novos Power-ups Implementados</h2>
+                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-emerald-400">Novas Funcionalidades de Jogo</h2>
                     <div class="grid md:grid-cols-2 gap-6">
                         <div class="glass-card p-6">
-                            <h3 class="text-xl font-bold mb-2 text-white">⚡ Cadeia de Raios</h3>
-                            <p class="text-gray-300">Projéteis agora têm a chance de gerar um raio elétrico que salta entre inimigos próximos, ideal para controle de multidões.</p>
+                            <h3 class="text-xl font-bold mb-2 text-white">🔁 Rerolagem de Cartas</h3>
+                            <p class="text-gray-300">Não gostou das opções? Agora você pode <strong class="text-amber-400">rerolar</strong> as cartas uma vez por nível para buscar o upgrade perfeito.</p>
                         </div>
                         <div class="glass-card p-6">
-                            <h3 class="text-xl font-bold mb-2 text-white">🛡️ Campo de Repulsão</h3>
-                            <p class="text-gray-300">Uma habilidade passiva que emite pulsos automáticos, empurrando asteroides e projéteis para longe de você.</p>
+                            <h3 class="text-xl font-bold mb-2 text-white">🔔 Notificações de Habilidades</h3>
+                            <p class="text-gray-300">Ao desbloquear uma habilidade ativa, uma <strong class="text-cyan-400">notificação</strong> aparecerá na tela informando a tecla de ativação.</p>
+                        </div>
+                         <div class="glass-card p-6">
+                            <h3 class="text-xl font-bold mb-2 text-white">💥 Feedback de Dano Visual</h3>
+                            <p class="text-gray-300">Ao receber dano, as <strong class="text-red-400">bordas da tela piscarão em vermelho</strong>, dando um feedback de impacto imediato e claro.</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="text-xl font-bold mb-2 text-white">🛑 Pausa Automática</h3>
+                            <p class="text-gray-300">O jogo agora <strong class="text-gray-300">pausa automaticamente</strong> se você clicar fora da janela, evitando mortes injustas.</p>
                         </div>
                     </div>
                 </section>
-
-                <section class="mt-12">
-                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-emerald-400">Loop de Jogo Infinito</h2>
-                    <div class="glass-card p-6 text-center">
-                        <p class="text-lg mb-6">Para aumentar a rejogabilidade, o jogo agora entra em um ciclo contínuo com dificuldade crescente após derrotar Marte.</p>
-                        <div class="flex justify-center items-center flex-wrap text-gray-200 font-bold">
-                            <div class="p-4 bg-gray-800 rounded-lg">Asteroides</div>
-                            <div class="flowchart-arrow"></div>
-                            <div class="p-4 bg-gray-800 rounded-lg">Chefe: Terra</div>
-                            <div class="flowchart-arrow"></div>
-                            <div class="p-4 bg-gray-800 rounded-lg">Asteroides</div>
-                            <div class="flowchart-arrow"></div>
-                            <div class="p-4 bg-gray-800 rounded-lg">Chefe: Marte</div>
-                            <div class="flowchart-arrow"></div>
-                            <div class="p-4 bg-emerald-800 rounded-lg">Repete 🔄</div>
+                
+                 <section class="mt-12">
+                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-emerald-400">Melhorias de Interface</h2>
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="glass-card p-6">
+                            <h3 class="text-xl font-bold mb-2 text-white">⏸️ Menu de Pausa</h3>
+                            <p class="text-gray-300">Pressione <strong class="text-emerald-400">ESC</strong> a qualquer momento para pausar o jogo, reiniciar ou ver os controles.</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="text-xl font-bold mb-2 text-white">🕒 Indicadores de Habilidades</h3>
+                            <p class="text-gray-300">Acompanhe a recarga de suas habilidades ativas com novos ícones na parte inferior da tela.</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="text-xl font-bold mb-2 text-white">📄 Exibição de Passivas</h3>
+                            <p class="text-gray-300">Veja facilmente seus power-ups passivos acumulados no canto inferior esquerdo.</p>
                         </div>
                     </div>
                 </section>
@@ -154,20 +122,22 @@
 
             <!-- Balancing Tab Content -->
             <div id="balancing" class="tab-content">
-                <section>
-                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-amber-400">Balanceamento do Chefe: Marte</h2>
+                 <section>
+                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-amber-400">Ajustes Gerais de Jogabilidade</h2>
                     <ul class="glass-card p-6 space-y-4">
-                        <li class="flex items-center text-lg"><span class="text-red-500 mr-3 text-2xl">↓</span> Vida total reduzida em <span class="font-bold text-red-400 mx-2">35%</span>.</li>
-                        <li class="flex items-center text-lg"><span class="text-emerald-500 mr-3 text-2xl">↑</span> Dano dos projéteis da torreta aumentado em <span class="font-bold text-emerald-400 mx-2">30%</span>.</li>
-                        <li class="flex items-center text-lg"><span class="text-emerald-500 mr-3 text-2xl">↑</span> Dano do feixe de laser aumentado em <span class="font-bold text-emerald-400 mx-2">30%</span>.</li>
-                        <li class="flex items-center text-lg"><span class="text-emerald-500 mr-3 text-2xl">↑</span> Largura do feixe de laser <span class="font-bold text-emerald-400 mx-2">duplicada</span>.</li>
+                        <li class="flex items-center text-lg"><span class="text-red-500 mr-3 text-2xl">↓</span><strong class="text-white mr-2">Tormenta de Mísseis:</strong> Habilidade rebalanceada. Agora é ativada pelo disparo da nave, e não por cada projétil individual.</li>
+                        <li class="flex items-center text-lg"><span class="text-emerald-500 mr-3 text-2xl">↑</span><strong class="text-white mr-2">Cadência de Tiro do Jogador:</strong> O tempo de recarga inicial entre os tiros foi reduzido (Cadência de 4 → 6).</li>
+                        <li class="flex items-center text-lg"><span class="text-emerald-500 mr-3 text-2xl">↑</span><strong class="text-white mr-2">Velocidade dos Satélites (Terra):</strong> Os satélites do chefe Terra estão mais rápidos e agressivos.</li>
+                        <li class="flex items-center text-lg"><span class="text-emerald-500 mr-3 text-2xl">↑</span><strong class="text-white mr-2">Movimento do Chefe Terra:</strong> A velocidade horizontal do chefe Terra foi aumentada, tornando o combate mais dinâmico.</li>
+                        <li class="flex items-center text-lg"><span class="text-blue-400 mr-3 text-2xl">⚙️</span><strong class="text-white mr-2">Laser das Naves (Marte):</strong> A espessura do feixe de laser foi aumentada para maior impacto visual.</li>
+                        <li class="flex items-center text-lg"><span class="text-blue-400 mr-3 text-2xl">⚙️</span><strong class="text-white mr-2">Orbes de XP:</strong> O tempo que os orbes de XP permanecem na tela foi ajustado.</li>
                     </ul>
                 </section>
                 <section class="mt-10">
-                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-amber-400">Ajustes de Física</h2>
+                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-amber-400">Ajustes em Cartas (Power-ups)</h2>
                     <ul class="glass-card p-6 space-y-4">
-                        <li class="flex items-start text-lg"><span class="text-blue-400 mr-3 mt-1">⚙️</span> Implementado sistema de colisão entre asteroides para ricochetes realistas.</li>
-                        <li class="flex items-start text-lg"><span class="text-blue-400 mr-3 mt-1">⚙️</span> Adicionada colisão entre a nave do jogador e o corpo principal do chefe Marte.</li>
+                        <li class="flex items-center text-lg"><span class="text-blue-400 mr-3 text-2xl">⚙️</span><strong class="text-white mr-2">Clareza nas Descrições:</strong> Todas as cartas foram atualizadas para mostrar valores numéricos exatos.</li>
+                         <li class="flex items-center text-lg"><span class="text-blue-400 mr-3 text-2xl">⚙️</span><strong class="text-white mr-2">Sobrecarga de Escudo:</strong> Agora consome 20% da vida atual para ativar, adicionando um custo de risco/recompensa.</li>
                     </ul>
                 </section>
             </div>
@@ -175,20 +145,18 @@
             <!-- Fixes Tab Content -->
             <div id="fixes" class="tab-content">
                  <section>
-                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-sky-400">🐛 Correções Críticas</h2>
+                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-sky-400">🐛 Correções Críticas de Lógica</h2>
                     <ul class="glass-card p-6 space-y-3 text-gray-300">
-                        <li class="pl-2 border-l-4 border-green-500"><strong>Chefe Terra Funcional:</strong> A lógica dos satélites foi restaurada. As funções `createSatellite` e `updateSatellites` foram reinseridas, garantindo seu funcionamento correto.</li>
-                        <li class="pl-2 border-l-4 border-green-500"><strong>Escudo Reativo:</strong> Corrigido bug que impedia o bloqueio correto de dano e a recarga. O escudo agora bloqueia dano por 2s e recarrega normalmente.</li>
-                        <li class="pl-2 border-l-4 border-green-500"><strong>Física de Projéteis:</strong> Tiros das torretas de Marte agora colidem corretamente com o jogador.</li>
+                        <li class="pl-2 border-l-4 border-green-500"><strong>Lógica da Tormenta de Mísseis:</strong> Corrigido para que a habilidade conte apenas o disparo principal da nave, e não cada projétil individual, garantindo o balanceamento correto.</li>
+                        <li class="pl-2 border-l-4 border-green-500"><strong>Pausa do Jogo:</strong> O jogo agora pausa completamente quando a tela de Level Up ou o menu de Pausa são exibidos, impedindo que o jogador sofra dano enquanto interage com os menus.</li>
+                        <li class="pl-2 border-l-4 border-green-500"><strong>Menu de Pausa (ESC):</strong> Corrigido um bug que impedia o menu de pausa de ser ativado com a tecla 'ESC'. Agora funciona como esperado e não entra em conflito com outras telas.</li>
                     </ul>
                 </section>
                 <section class="mt-10">
-                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-sky-400">🎨 Melhorias Visuais</h2>
+                    <h2 class="text-3xl font-bold font-orbitron mb-6 text-sky-400">🎨 Melhorias Visuais e de UI</h2>
                      <ul class="glass-card p-6 space-y-3 text-gray-300">
-                        <li class="pl-2 border-l-4 border-blue-500"><strong>Feedback de Dano:</strong> Adicionadas partículas sutis ao receber dano, melhorando a clareza do combate.</li>
-                        <li class="pl-2 border-l-4 border-blue-500"><strong>Animações de Marte:</strong> Naves-torreta e de laser agora possuem animação de flutuação e deslizam suavemente na tela.</li>
-                        <li class="pl-2 border-l-4 border-blue-500"><strong>Origem do Laser:</strong> O feixe agora se origina visivelmente da frente da nave que o dispara.</li>
-                        <li class="pl-2 border-l-4 border-blue-500"><strong>Orientação de Sprites:</strong> Corrigida a orientação da nave de laser da esquerda.</li>
+                        <li class="pl-2 border-l-4 border-blue-500"><strong>Feedback de Dano:</strong> Adicionada uma sobreposição visual que pisca em vermelho para indicar claramente quando o jogador recebe dano.</li>
+                        <li class="pl-2 border-l-4 border-blue-500"><strong>Ícones de Habilidades:</strong> Ícones para habilidades ativas e passivas agora são exibidos corretamente na tela.</li>
                     </ul>
                 </section>
             </div>
@@ -204,11 +172,9 @@
                 tab.addEventListener('click', () => {
                     const target = tab.getAttribute('data-tab');
 
-                    // Deactivate all tabs and contents
                     tabs.forEach(t => t.classList.remove('active'));
                     contents.forEach(c => c.classList.remove('active'));
 
-                    // Activate the clicked tab and corresponding content
                     tab.classList.add('active');
                     document.getElementById(target).classList.add('active');
                 });
