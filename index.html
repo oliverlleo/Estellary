@@ -62,12 +62,25 @@
         <div id="bossHealthBarFill"></div>
         <span id="bossHealthText">CHEFE</span>
     </div>
+    
+    <!-- UI DE HABILIDADES E POWER-UPS -->
+    <div id="passivePowerupsContainer" class="hidden"></div>
+    <div id="abilityCooldownsContainer" class="hidden"></div>
 
+    <!-- TELAS DE SOBREPOSIÇÃO -->
     <div id="levelUpScreen" class="hidden">
         <h2>Nível Up! Escolha uma melhoria:</h2>
         <div id="cardContainer"></div>
     </div>
 
+    <div id="pauseMenu" class="hidden">
+        <div class="pause-content">
+            <h2>PAUSA</h2>
+            <button id="resumeButton">Continuar</button>
+            <button id="restartFromPauseButton">Reiniciar</button>
+        </div>
+    </div>
+    
     <div id="cheatMenu" class="hidden">
         <div class="cheat-menu-content">
             <h2>Menu de Power-ups</h2>
@@ -78,19 +91,11 @@
 
     <div id="controls" class="hidden">
         <strong>Controles:</strong><br>
-        - WASD: Mover (a nave gira suavemente)<br>
+        - WASD: Mover<br>
         - Espaço/Mouse: Atirar<br>
-        <br>
-        <strong>Habilidades (após desbloquear):</strong><br>
-        - U: Pulso Estático<br>
-        - P: Teleporte de Emergência<br>
-        - J: Lâmina de Energia<br>
-        - I: Manto de Invisibilidade<br>
-        - O: Sobrecarga de Escudo<br>
-        - K: Canhão de Plasma
+        - Esc: Pausar Jogo
     </div>
 
-    <!-- TELA DE GAME OVER (ATUALIZADA) -->
     <div id="gameOverScreen" class="hidden">
         <div class="gameOverContent">
             <img id="destroyedShipImage" src="assets/images/Navedestruida.png" alt="Nave Destruída">
@@ -99,12 +104,14 @@
         </div>
     </div>
 
+    <!-- ÁUDIO -->
     <audio id="introMusic" src="assets/audio/startwind.ogg" loop></audio>
     <audio id="gameMusic" src="assets/audio/play.ogg" loop></audio>
     <audio id="shotSound" src="assets/audio/tiro.ogg"></audio>
     <audio id="plasmaSound" src="assets/audio/plasma.ogg"></audio>
     <audio id="gameOverSound" src="assets/audio/gameover.ogg"></audio>
     <audio id="bossMusic" src="assets/audio/boss1.ogg" loop></audio>
+
     <script src="js/script.js"></script>
 </body>
 </html>

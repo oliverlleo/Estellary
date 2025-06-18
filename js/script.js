@@ -33,17 +33,33 @@ window.onload = function() {
     const gameOverScreen = document.getElementById("gameOverScreen");
     const restartButton = document.getElementById("restartButton");
     const bossHealthBarContainer = document.getElementById("bossHealthBarContainer");
+    const bossHealthText = document.getElementById("bossHealthText");
     const bossWarningBorder = document.getElementById("bossWarningBorder");
     const cheatMenu = document.getElementById("cheatMenu");
     const cheatPowerupList = document.getElementById("cheatPowerupList");
     const closeCheatMenuBtn = document.getElementById("closeCheatMenuBtn");
+    const pauseMenu = document.getElementById("pauseMenu");
+    const resumeButton = document.getElementById("resumeButton");
+    const restartFromPauseButton = document.getElementById("restartFromPauseButton");
+    const abilityCooldownsContainer = document.getElementById("abilityCooldownsContainer");
+    const passivePowerupsContainer = document.getElementById("passivePowerupsContainer");
 
     // --- 2. ESTADO INICIAL E VARIÁVEIS GLOBAIS DO JOGO ---
     let animationFrameId = null;
     let soundEnabled = false;
     const gameState = {
-        paused: false, level: 1, xp: 0, xpRequired: 5, sector: 1, time: 0, score: 0,
-        bossActive: false, postBossMode: false, bossDefeats: 0, isGameOver: false
+        paused: false,
+        isLevelingUp: false, // Flag para controlar o estado de level up
+        level: 1,
+        xp: 0,
+        xpRequired: 5,
+        sector: 1,
+        time: 0,
+        score: 0,
+        bossActive: false,
+        postBossMode: false,
+        bossDefeats: 0,
+        isGameOver: false
     };
     const initialPlayerStats = {
         maxHealth: 100, health: 100, baseDamage: 10, armor: 0, fireRate: 4, moveSpeed: 1.5,
@@ -53,21 +69,21 @@ window.onload = function() {
     let playerStats = { ...initialPlayerStats };
     const initialPlayerEffects = {
         bifurcatedShot: { active: false, level: 0 },
-        plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, cooldownDuration: 360 },
+        plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, maxCooldown: 360 },
         missileStorm: { active: false, shotCount: 0, shotsNeeded: 10 },
         orbitalDrones: { active: false, drones: [] },
-        energyBlade: { active: false, duration: 0, cooldown: 0, angle: 0 },
+        energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: 1200, maxDuration: 600 },
         ricochetShot: false,
         chainLightning: { active: false, chance: 0.15, bounces: 2, damage: 0.5 },
         battleFrenzy: { active: false, timer: 0, maxTime: 300 },
-        staticPulse: { active: false, cooldown: 0 },
+        staticPulse: { active: false, cooldown: 0, maxCooldown: 300 },
         spectralCannon: false,
-        reactiveShield: { active: false, cooldown: 0, cooldownDuration: 1800, duration: 0 }, // 1800 frames = 30 segundos
-        repulsionField: { active: false, radius: 105, force: 10, cooldown: 0, cooldownDuration: 1800 }, // 1800 frames = 30 segundos
-        emergencyTeleport: { active: false, cooldown: 0 },
+        reactiveShield: { active: false, cooldown: 0, maxCooldown: 1800, duration: 0, maxDuration: 120 },
+        repulsionField: { active: false, radius: 105, force: 10, cooldown: 0, maxCooldown: 1800 },
+        emergencyTeleport: { active: false, cooldown: 0, maxCooldown: 180 },
         nanobotRegeneration: false,
-        invisibilityCloak: { active: false, cooldown: 0, duration: 0 },
-        shieldOvercharge: { active: false, cooldown: 0, duration: 0 },
+        invisibilityCloak: { active: false, cooldown: 0, maxCooldown: 600, duration: 0, maxDuration: 300 },
+        shieldOvercharge: { active: false, cooldown: 0, maxCooldown: 600, duration: 0, maxDuration: 180 },
         hullShield: { active: false, shield: 0, maxShield: 0 }
     };
     let playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
@@ -81,7 +97,7 @@ window.onload = function() {
     let keySequence = [];
     let sequenceTimeout;
 
-    // Imagens do Jogo
+    // Imagens do Jogo e UI
     const playerShipImage = new Image(); playerShipImage.src = "assets/images/player_ship.png";
     const projectileImage = new Image(); projectileImage.src = "assets/images/projectile.png";
     const asteroidImage = new Image(); asteroidImage.src = "assets/images/asteroid.png";
@@ -98,6 +114,18 @@ window.onload = function() {
     const energyBladeImage = new Image(); energyBladeImage.src = "assets/images/lamina.png"; 
     const marsImage = new Image(); marsImage.src = "assets/images/marte.png";
     const marsShipImage = new Image(); marsShipImage.src = "assets/images/navemarte.png";
+    
+    const iconImages = {
+        staticPulse: 'assets/icons/static_pulse.png',
+        emergencyTeleport: 'assets/icons/teleport.png',
+        energyBlade: 'assets/icons/energy_blade.png',
+        invisibilityCloak: 'assets/icons/invisibility.png',
+        shieldOvercharge: 'assets/icons/shield_overcharge.png',
+        plasmaCannon: 'assets/icons/plasma_cannon.png',
+        ricochetShot: 'assets/icons/ricochet.png',
+        nanobotRegeneration: 'assets/icons/regen.png',
+        spectralCannon: 'assets/icons/spectral.png'
+    };
 
     const numberImages = [];
     for(let i=0; i < 10; i++) {
@@ -105,41 +133,38 @@ window.onload = function() {
         numberImages[i].src = `assets/images/${i}.png`;
     }
 
-    // Banco de Dados de Cartas
+    // Banco de Dados de Cartas com descrições detalhadas
     const cardDatabase = [
-        { id: "bifurcated_shot", name: "Tiro Bifurcado", description: "Adiciona +1 projétil ao disparo (máx 4).", type: "attack" },
-        { id: "plasma_cannon", name: "Canhão de Plasma", description: "Ativa tiro carregado com 'K'. Upgrades dão +1 carga.", type: "attack" },
-        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Passivo: Lança mísseis a cada 10 tiros. Upgrades reduzem a contagem.", type: "attack" },
-        { id: "orbital_drones", name: "Disparos Orbitais", description: "Gera um drone que dispara.", type: "attack" },
-        { id: "energy_blade", name: "Lâmina de Energia", description: "Laser giratório (tecla J).", type: "attack" },
-        { id: "ricochet_shot", name: "Tiro Ricochete", description: "Projéteis ricocheteiam nas bordas da tela.", type: "attack" },
-        { id: "chain_lightning", name: "Cadeia de Raios", description: "Seus tiros têm 15% de chance de criar um raio que salta para inimigos. Upgrades adicionam +1 salto.", type: "attack" },
-        { id: "battle_frenzy", name: "Frenesi de Batalha", description: "Aumenta cadência ao destruir.", type: "attack" },
-        { id: "static_pulse", name: "Pulso Estático", description: "Onda de choque (tecla U).", type: "attack" },
-        { id: "spectral_cannon", name: "Canhão Espectral", description: "Tiros atravessam inimigos.", type: "attack" },
-        { id: "reactive_shield", name: "Escudo Reativo", description: "Ao receber dano, bloqueia todos os ataques por 2 segundos. Recarrega em 30 segundos.", type: "defense" },
-        { id: "maneuver_thrusters", name: "Propulsores de Manobra", description: "Aumenta velocidade de movimento.", type: "defense" },
-        { id: "adamantium_plating", name: "Placas de Adamântio", description: "Aumenta vida máxima e armadura.", type: "defense" },
-        { id: "repulsion_field", name: "Campo de Repulsão", description: "Emite um pulso de repulsão automático. Upgrades diminuem a recarga e aumentam o raio.", type: "defense" },
-        { id: "emergency_teleport", name: "Teleporte de Emergência", description: "Teleporte curto (tecla P).", type: "defense" },
-        { id: "nanobot_regeneration", name: "Regeneração de Nanorobôs", description: "Regenera vida lentamente.", type: "defense" },
-        { id: "scrap_attraction", name: "Atração de Sucata", description: "Aumenta raio de coleta de XP.", type: "defense" },
-        { id: "invisibility_cloak", name: "Manto de Invisibilidade", description: "Atravessa inimigos (tecla I).", type: "defense" },
-        { id: "shield_overcharge", name: "Sobrecarga de Escudo", description: "Escudos invulneráveis (tecla O).", type: "defense" },
-        { id: "fine_calibration", name: "Calibragem Fina", description: "Aumenta velocidade dos projéteis.", type: "attribute" },
-        { id: "combat_focus", name: "Foco de Combate", description: "Aumenta chance de crítico.", type: "attribute" },
-        { id: "improved_reactor", name: "Reator Aprimorado", description: "Aumenta o ritmo de tiro.", type: "attribute" },
-        { id: "expansion_modules", name: "Módulos de Expansão", description: "Aumenta o alcance dos tiros.", type: "attribute" },
-        { id: "target_analyzer", name: "Analisador de Alvos", description: "Aumenta o dano crítico.", type: "attribute" },
-        { id: "magnetic_collector", name: "Coletor Magnético", description: "Aumenta o raio de coleta de XP.", type: "attribute" },
-        { id: "cooldown_reducer", name: "Redutor de Recarga", description: "Diminui recarga de habilidades.", type: "attribute" },
-        { id: "explorer_luck", name: "Sorte do Explorador", description: "Aumenta a sorte geral.", type: "attribute" },
-        { id: "reinforced_chassis", name: "Chassi Reforçado", description: "Aumenta vida máxima.", type: "health" },
-        { id: "armor_plating", name: "Placas de Blindagem", description: "Adiciona armadura.", type: "health" },
-        { id: "hull_shield", name: "Escudo de Fuselagem", description: "Converte vida em escudo.", type: "health" }
+        { id: "bifurcated_shot", name: "Tiro Bifurcado", description: "Adiciona +1 projétil ao disparo (máx. 4), mas reduz o dano de cada um para 70%.", type: "attack" },
+        { id: "plasma_cannon", name: "Canhão de Plasma", description: "Tecla 'K': Dispara um tiro carregado massivo. Ganha +1 carga por upgrade.", type: "attack", key: 'K' },
+        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Passivo: Lança uma salva de 8 mísseis a cada 10 tiros. Upgrades reduzem a contagem em -1.", type: "attack" },
+        { id: "orbital_drones", name: "Drones Orbitais", description: "Gera um drone que dispara automaticamente em inimigos próximos.", type: "attack" },
+        { id: "energy_blade", name: "Lâmina de Energia", description: "Tecla 'J': Ativa uma lâmina giratória por 10s que causa dano contínuo. Recarga: 20s.", type: "attack", key: 'J' },
+        { id: "ricochet_shot", name: "Tiro Ricochete", description: "Seus projéteis ricocheteiam nas bordas da tela até 2 vezes.", type: "attack" },
+        { id: "chain_lightning", name: "Cadeia de Raios", description: "15% de chance dos tiros criarem um raio que salta para inimigos. Upgrades adicionam +1 salto.", type: "attack" },
+        { id: "battle_frenzy", name: "Frenesi de Batalha", description: "Aumenta a cadência de tiro em 50% por 5s após destruir um inimigo.", type: "attack" },
+        { id: "static_pulse", name: "Pulso Estático", description: "Tecla 'U': Emite uma onda de choque que causa dano em área. Recarga: 5s.", type: "attack", key: 'U' },
+        { id: "spectral_cannon", name: "Canhão Espectral", description: "Seus projéteis atravessam inimigos, podendo atingir múltiplos alvos.", type: "attack" },
+        { id: "reactive_shield", name: "Escudo Reativo", description: "Ao receber dano, bloqueia todos os ataques por 2s. Recarrega em 30s.", type: "defense" },
+        { id: "maneuver_thrusters", name: "Propulsores de Manobra", description: "Aumenta a velocidade de movimento em 25%.", type: "defense" },
+        { id: "adamantium_plating", name: "Placas de Adamântio", description: "Aumenta a vida máxima em +50 e a armadura em +5.", type: "defense" },
+        { id: "repulsion_field", name: "Campo de Repulsão", description: "Emite um pulso de repulsão a cada 30s. Upgrades diminuem a recarga e aumentam o raio.", type: "defense" },
+        { id: "emergency_teleport", name: "Teleporte de Emergência", description: "Tecla 'P': Teleporta a nave para frente. Recarga: 3s.", type: "defense", key: 'P' },
+        { id: "nanobot_regeneration", name: "Regeneração Nanobótica", description: "Regenera 0.5% da vida máxima por segundo.", type: "defense" },
+        { id: "invisibility_cloak", name: "Manto de Invisibilidade", description: "Tecla 'I': Fica invisível e ignora colisões por 5s. Recarga: 10s.", type: "defense", key: 'I' },
+        { id: "shield_overcharge", name: "Sobrecarga de Escudo", description: "Tecla 'O': Fica invulnerável por 3s, mas consome 20% da vida atual. Recarga: 10s.", type: "defense", key: 'O' },
+        { id: "fine_calibration", name: "Calibragem Fina", description: "Aumenta a velocidade dos projéteis em 20%.", type: "attribute" },
+        { id: "combat_focus", name: "Foco de Combate", description: "Aumenta a chance de crítico em +5%.", type: "attribute" },
+        { id: "improved_reactor", name: "Reator Aprimorado", description: "Aumenta a cadência de tiro em 25%.", type: "attribute" },
+        { id: "expansion_modules", name: "Módulos de Expansão", description: "Aumenta o alcance dos tiros em 30%.", type: "attribute" },
+        { id: "target_analyzer", name: "Analisador de Alvos", description: "Aumenta o dano crítico em +50%.", type: "attribute" },
+        { id: "magnetic_collector", name: "Coletor Magnético", description: "Aumenta o raio de coleta de XP em 20%.", type: "attribute" },
+        { id: "cooldown_reducer", name: "Redutor de Recarga", description: "Diminui a recarga de todas as habilidades em 10%.", type: "attribute" },
+        { id: "explorer_luck", name: "Sorte do Explorador", description: "Aumenta a sorte (chance de XP dobrado e cartas raras) em +1%.", type: "attribute" },
+        { id: "reinforced_chassis", name: "Chassi Reforçado", description: "Aumenta a vida máxima em +35.", type: "health" },
+        { id: "armor_plating", name: "Placas de Blindagem", description: "Adiciona +3 de armadura.", type: "health" },
+        { id: "hull_shield", name: "Escudo de Fuselagem", description: "Converte 30% da vida máxima em um escudo que se regenera lentamente.", type: "health" }
     ];
-
-
 
     // --- 3. DEFINIÇÕES DE FUNÇÕES ---
 
@@ -334,6 +359,7 @@ window.onload = function() {
         gameState.bossActive = true;
         gameState.postBossMode = false;
         bossHealthBarContainer.classList.remove('hidden');
+        bossHealthText.textContent = "Terra, o Explorador";
         bossWarningBorder.classList.remove('hidden');
         
         const bossSpeedMultiplier = 1 + (gameState.bossDefeats * 0.20);
@@ -358,6 +384,7 @@ window.onload = function() {
         gameState.bossActive = true;
         gameState.postBossMode = false;
         bossHealthBarContainer.classList.remove('hidden');
+        bossHealthText.textContent = "Marte, o Conquistador";
         bossWarningBorder.classList.remove('hidden');
     
         const bossSpeedMultiplier = 1.2; // 20% faster
@@ -383,7 +410,6 @@ window.onload = function() {
     }
 
     function activateRepulsionPulse() {
-        // Efeito visual do pulso de repulsão
         const radius = playerEffects.repulsionField.radius;
         for(let i = 0; i < 360; i += 10) {
             const angle = i * Math.PI / 180;
@@ -417,7 +443,7 @@ window.onload = function() {
         
         if (playerEffects.repulsionField.cooldown <= 0) {
             activateRepulsionPulse();
-            playerEffects.repulsionField.cooldown = playerEffects.repulsionField.cooldownDuration * playerStats.cooldownReduction;
+            playerEffects.repulsionField.cooldown = playerEffects.repulsionField.maxCooldown * playerStats.cooldownReduction;
         }
     }
 
@@ -471,13 +497,17 @@ window.onload = function() {
             }
         });
 
-        updateRepulsionField(); // Atualiza a habilidade de repulsão a cada frame
+        updateRepulsionField();
 
         if (playerEffects.battleFrenzy.active && playerEffects.battleFrenzy.timer > 0) {
             playerEffects.battleFrenzy.timer--;
         }
-        if (playerEffects.nanobotRegeneration && playerStats.health < playerStats.maxHealth) playerStats.health += 0.05;
-        if (playerEffects.hullShield.active && playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) playerEffects.hullShield.shield += 0.1;
+        if (playerEffects.nanobotRegeneration && playerStats.health < playerStats.maxHealth) {
+             playerStats.health += (playerStats.maxHealth * 0.005) / 60; // Regenera 0.5% por segundo
+        }
+        if (playerEffects.hullShield.active && playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) {
+            playerEffects.hullShield.shield += 0.1;
+        }
         playerStats.health = Math.min(playerStats.health, playerStats.maxHealth);
     
         if (playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.cooldown > 0) {
@@ -1269,9 +1299,10 @@ window.onload = function() {
             if (playerEffects.bifurcatedShot.active) {
                 const numShots = playerEffects.bifurcatedShot.level + 1;
                 const totalAngle = 0.25 * numShots;
+                const damagePerShot = damage * 0.7; // Dano ajustado para tiro bifurcado
                 for (let i = 0; i < numShots; i++) {
-                    const angleOffset = -totalAngle / 2 + (i * (totalAngle / (numShots - 1 || 1)));
-                    createBullet(player.x, player.y, player.angle + angleOffset, playerStats.projectileSpeed, damage * 0.7, special);
+                    const angleOffset = (numShots > 1) ? -totalAngle / 2 + (i * (totalAngle / (numShots - 1))) : 0;
+                    createBullet(player.x, player.y, player.angle + angleOffset, playerStats.projectileSpeed, damagePerShot, special);
                 }
             } else {
                 createBullet(player.x, player.y, player.angle, playerStats.projectileSpeed, damage, special);
@@ -1282,19 +1313,17 @@ window.onload = function() {
     }
 
     function takeDamage(amount) {
-        if (playerStats.health <= 0) return false;
+        if (playerStats.health <= 0 || playerEffects.shieldOvercharge.duration > 0) return true;
 
-        // Se o escudo estiver em sua duração ativa, bloqueie o dano
         if (playerEffects.reactiveShield.duration > 0) {
             return true; // Dano bloqueado
         }
     
-        // Se o escudo estiver pronto (sem cooldown) e o jogador for atingido, ative-o
         if (playerEffects.reactiveShield.active && playerEffects.reactiveShield.cooldown <= 0) {
-            playerEffects.reactiveShield.duration = 120; // Ativa por 2 segundos (120 frames)
-            playerEffects.reactiveShield.cooldown = playerEffects.reactiveShield.cooldownDuration * playerStats.cooldownReduction;
-            createParticles(player.x, player.y, 40, "#00BFFF", 2.5); // Efeito visual de ativação
-            return true; // Bloqueia o dano que ativou o escudo
+            playerEffects.reactiveShield.duration = playerEffects.reactiveShield.maxDuration;
+            playerEffects.reactiveShield.cooldown = playerEffects.reactiveShield.maxCooldown * playerStats.cooldownReduction;
+            createParticles(player.x, player.y, 40, "#00BFFF", 2.5); 
+            return true; 
         }
         
         const finalDamage = Math.max(0, amount - playerStats.armor);
@@ -1309,7 +1338,7 @@ window.onload = function() {
         }
         if (playerStats.health <= 0) { playerStats.health = 0; gameOver(); }
         updateUI();
-        return false; // Dano não foi bloqueado
+        return false;
     }
 
     function gainXP(amount) {
@@ -1329,8 +1358,8 @@ window.onload = function() {
     }
 
     function showLevelUpScreen() {
-        cancelAnimationFrame(animationFrameId);
-        gameState.paused = true;
+        gameState.isLevelingUp = true;
+        togglePause(true);
         levelUpScreen.classList.remove("hidden");
         const cardContainer = document.getElementById("cardContainer");
         cardContainer.innerHTML = "";
@@ -1365,22 +1394,61 @@ window.onload = function() {
                 cardElement.querySelector("button").addEventListener("click", () => {
                     applyCardEffect(card);
                     levelUpScreen.classList.add("hidden");
-                    gameState.paused = false;
-                    gameLoop();
+                    gameState.isLevelingUp = false;
+                    togglePause(false);
                 });
             });
         }
     }
+    
+    function addAbilityIcon(effectName, key) {
+        const existingIcon = document.getElementById(`icon-${effectName}`);
+        if (existingIcon) return; // Não adiciona se já existe
+
+        const iconContainer = document.createElement('div');
+        iconContainer.id = `icon-${effectName}`;
+        iconContainer.className = 'ui-icon';
+        
+        const iconImg = document.createElement('img');
+        iconImg.src = iconImages[effectName] || 'assets/icons/default.png'; // Fallback icon
+        iconContainer.appendChild(iconImg);
+
+        const keyText = document.createElement('span');
+        keyText.className = 'cooldown-key';
+        keyText.textContent = key;
+        iconContainer.appendChild(keyText);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'cooldown-overlay';
+        iconContainer.appendChild(overlay);
+
+        abilityCooldownsContainer.appendChild(iconContainer);
+    }
+    
+    function addPassiveIcon(effectName) {
+        const existingIcon = document.getElementById(`passive-icon-${effectName}`);
+        if (existingIcon) return;
+
+        const iconContainer = document.createElement('div');
+        iconContainer.id = `passive-icon-${effectName}`;
+        iconContainer.className = 'ui-icon passive-icon';
+        
+        const iconImg = document.createElement('img');
+        iconImg.src = iconImages[effectName] || 'assets/icons/default.png';
+        iconContainer.appendChild(iconImg);
+        
+        passivePowerupsContainer.appendChild(iconContainer);
+    }
+
 
     function applyCardEffect(card) {
         switch(card.id) {
             case "bifurcated_shot":
                 playerEffects.bifurcatedShot.active = true;
-                if(playerEffects.bifurcatedShot.level < 3) {
-                    playerEffects.bifurcatedShot.level++;
-                }
+                if(playerEffects.bifurcatedShot.level < 3) playerEffects.bifurcatedShot.level++;
                 break;
             case "plasma_cannon": 
+                if (!playerEffects.plasmaCannon.active) addAbilityIcon('plasmaCannon', card.key);
                 playerEffects.plasmaCannon.active = true;
                 playerEffects.plasmaCannon.maxCharges++;
                 playerEffects.plasmaCannon.charges++;
@@ -1388,37 +1456,57 @@ window.onload = function() {
                 break;
             case "missile_storm": 
                 playerEffects.missileStorm.active = true;
-                if (playerEffects.missileStorm.shotsNeeded > 2) {
-                    playerEffects.missileStorm.shotsNeeded--;
-                }
+                if (playerEffects.missileStorm.shotsNeeded > 2) playerEffects.missileStorm.shotsNeeded--;
                 break;
             case "orbital_drones":
                 playerEffects.orbitalDrones.active = true;
-                const newDroneAngle = Math.random() * Math.PI * 2;
-                playerEffects.orbitalDrones.drones.push({ angleOffset: newDroneAngle, dist: 60, fireRate: 1, lastFire: 0 });
+                playerEffects.orbitalDrones.drones.push({ angleOffset: Math.random() * Math.PI * 2, dist: 60, fireRate: 1, lastFire: 0 });
                 break;
-            case "energy_blade": playerEffects.energyBlade.active = true; break;
-            case "ricochet_shot": playerEffects.ricochetShot = true; break;
+            case "energy_blade": 
+                if (!playerEffects.energyBlade.active) addAbilityIcon('energyBlade', card.key);
+                playerEffects.energyBlade.active = true; 
+                break;
+            case "ricochet_shot": 
+                if (!playerEffects.ricochetShot) addPassiveIcon('ricochetShot');
+                playerEffects.ricochetShot = true; 
+                break;
             case "chain_lightning": 
                 playerEffects.chainLightning.active = true; 
                 playerEffects.chainLightning.bounces++;
                 break;
             case "battle_frenzy": playerEffects.battleFrenzy.active = true; break;
-            case "static_pulse": playerEffects.staticPulse.active = true; break;
-            case "spectral_cannon": playerEffects.spectralCannon = true; break;
+            case "static_pulse": 
+                if (!playerEffects.staticPulse.active) addAbilityIcon('staticPulse', card.key);
+                playerEffects.staticPulse.active = true; 
+                break;
+            case "spectral_cannon": 
+                if (!playerEffects.spectralCannon) addPassiveIcon('spectralCannon');
+                playerEffects.spectralCannon = true; 
+                break;
             case "reactive_shield": playerEffects.reactiveShield.active = true; break;
             case "maneuver_thrusters": playerStats.moveSpeed *= 1.25; break;
             case "adamantium_plating": playerStats.maxHealth += 50; playerStats.health += 50; playerStats.armor += 5; break;
             case "repulsion_field": 
                 playerEffects.repulsionField.active = true; 
-                playerEffects.repulsionField.cooldownDuration *= 0.85; // Reduz em 15%
+                playerEffects.repulsionField.maxCooldown *= 0.85;
                 playerEffects.repulsionField.radius += 35;
                 break;
-            case "emergency_teleport": playerEffects.emergencyTeleport.active = true; break;
-            case "nanobot_regeneration": playerEffects.nanobotRegeneration = true; break;
-            case "scrap_attraction": playerStats.xpCollectionRadius *= 1.5; break;
-            case "invisibility_cloak": playerEffects.invisibilityCloak.active = true; break;
-            case "shield_overcharge": playerEffects.shieldOvercharge.active = true; break;
+            case "emergency_teleport": 
+                if (!playerEffects.emergencyTeleport.active) addAbilityIcon('emergencyTeleport', card.key);
+                playerEffects.emergencyTeleport.active = true; 
+                break;
+            case "nanobot_regeneration": 
+                if (!playerEffects.nanobotRegeneration) addPassiveIcon('nanobotRegeneration');
+                playerEffects.nanobotRegeneration = true; 
+                break;
+            case "invisibility_cloak": 
+                if (!playerEffects.invisibilityCloak.active) addAbilityIcon('invisibilityCloak', card.key);
+                playerEffects.invisibilityCloak.active = true; 
+                break;
+            case "shield_overcharge": 
+                if (!playerEffects.shieldOvercharge.active) addAbilityIcon('shieldOvercharge', card.key);
+                playerEffects.shieldOvercharge.active = true; 
+                break;
             case "fine_calibration": playerStats.projectileSpeed *= 1.2; break;
             case "combat_focus": playerStats.critChance += 0.05; break;
             case "improved_reactor": playerStats.fireRate *= 1.25; break;
@@ -1453,11 +1541,17 @@ window.onload = function() {
     function restartGame() {
         cancelAnimationFrame(animationFrameId);
         gameOverScreen.classList.add('hidden');
+        pauseMenu.classList.add('hidden');
         bossHealthBarContainer.classList.add('hidden');
         bossWarningBorder.classList.add('hidden');
         heatBarContainer.classList.add('hidden');
-        scoreContainer.classList.add('hidden');
+        
+        // Limpa UI de habilidades
+        abilityCooldownsContainer.innerHTML = '';
+        passivePowerupsContainer.innerHTML = '';
+        
         gameState.paused = false;
+        gameState.isLevelingUp = false;
         gameState.isGameOver = false;
         gameState.level = 1;
         gameState.xp = 0;
@@ -1473,6 +1567,13 @@ window.onload = function() {
         missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0; lightningBolts.length = 0;
         
         initGame();
+        
+        // Garante que a música do jogo comece
+        if (soundEnabled) {
+            bossMusic.pause();
+            gameMusic.currentTime = 0;
+            gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
+        }
     }
 
     function updateScoreUI() {
@@ -1483,6 +1584,7 @@ window.onload = function() {
     }
 
     function updateUI() {
+        // Barras de XP e Vida
         xpBarContainer.querySelector("#xpText").textContent = `NÍVEL ${gameState.level} | XP: ${gameState.xp}/${gameState.xpRequired}`;
         xpBarContainer.querySelector("#xpBarFill").style.width = `${(gameState.xp / gameState.xpRequired) * 100}%`;
         healthBarContainer.querySelector("#healthText").textContent = `HP: ${Math.ceil(playerStats.health)}/${playerStats.maxHealth}`;
@@ -1492,9 +1594,10 @@ window.onload = function() {
         
         updateScoreUI();
 
+        // Barra do Canhão de Plasma
         if (playerEffects.plasmaCannon.active) {
             if (playerEffects.plasmaCannon.cooldown > 0) {
-                const cooldownProgress = 1 - (playerEffects.plasmaCannon.cooldown / playerEffects.plasmaCannon.cooldownDuration);
+                const cooldownProgress = 1 - (playerEffects.plasmaCannon.cooldown / (playerEffects.plasmaCannon.maxCooldown * playerStats.cooldownReduction));
                 heatBarFill.style.width = `${cooldownProgress * 100}%`;
                 heatText.textContent = `RECARREGANDO...`;
             } else {
@@ -1503,6 +1606,21 @@ window.onload = function() {
                 heatText.textContent = `CARGAS: ${playerEffects.plasmaCannon.charges}/${playerEffects.plasmaCannon.maxCharges}`;
             }
         }
+        
+        // UI de Recargas de Habilidades
+        Object.keys(playerEffects).forEach(effectName => {
+            const effect = playerEffects[effectName];
+            if (effect.active && effect.maxCooldown) {
+                const icon = document.getElementById(`icon-${effectName}`);
+                if (icon) {
+                    const overlay = icon.querySelector('.cooldown-overlay');
+                    const cooldown = effect.cooldown || 0;
+                    const maxCooldown = effect.maxCooldown * playerStats.cooldownReduction;
+                    const heightPercentage = (cooldown / maxCooldown) * 100;
+                    overlay.style.height = `${heightPercentage}%`;
+                }
+            }
+        });
     }
 
     function updateBossUI() {
@@ -1512,6 +1630,9 @@ window.onload = function() {
 
     function gameLoop() {
         if (gameState.paused) return;
+        
+        animationFrameId = requestAnimationFrame(gameLoop);
+
         try {
             if (!gameState.isGameOver) {
                 updatePlayer();
@@ -1535,6 +1656,8 @@ window.onload = function() {
             if (gameState.postBossMode) updateBlueMeteors();
             updateParticles();
             updateXPOrbs();
+            
+            updateUI(); // Atualiza a UI a cada frame
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (backgroundImage.loadSuccess !== false) ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
@@ -1572,12 +1695,27 @@ window.onload = function() {
             }
         } catch (e) {
             console.error("Erro no gameLoop:", e);
-            gameState.paused = true;
+            togglePause(true); // Pausa em caso de erro
         }
-        animationFrameId = requestAnimationFrame(gameLoop);
     }
 
     // --- 4. INICIALIZAÇÃO E EVENT LISTENERS ---
+    
+    function togglePause(shouldPause) {
+        if (shouldPause && !gameState.paused) {
+            gameState.paused = true;
+            cancelAnimationFrame(animationFrameId);
+            // Só mostra o menu de pausa se não estiver na tela de level up
+            if (!gameState.isLevelingUp) {
+                pauseMenu.classList.remove('hidden');
+            }
+        } else if (!shouldPause && gameState.paused) {
+            gameState.paused = false;
+            pauseMenu.classList.add('hidden');
+            gameLoop();
+        }
+    }
+
     function startIntro(withSound) {
         soundPermissionPopup.classList.add('hidden');
         introScreen.classList.remove('hidden');
@@ -1603,7 +1741,6 @@ window.onload = function() {
 
     function initGame() {
         resizeCanvas();
-        window.addEventListener("resize", resizeCanvas);
         player.x = canvas.width / 2;
         player.y = canvas.height / 2;
         player.invisible = false; 
@@ -1621,6 +1758,8 @@ window.onload = function() {
         healthBarContainer.classList.remove("hidden");
         controls.classList.remove("hidden");
         scoreContainer.classList.remove("hidden");
+        abilityCooldownsContainer.classList.remove("hidden");
+        passivePowerupsContainer.classList.remove("hidden");
         introMusic.pause();
         if (soundEnabled) {
             gameMusic.currentTime = 0;
@@ -1632,14 +1771,25 @@ window.onload = function() {
     restartButton.addEventListener('click', () => {
         gameOverSound.pause();
         gameOverSound.currentTime = 0;
-        gameOverScreen.classList.add('hidden');
         restartGame();
     });
     
+    resumeButton.addEventListener('click', () => togglePause(false));
+    restartFromPauseButton.addEventListener('click', restartGame);
+
     document.addEventListener("keydown", (e) => {
+        // Lógica de Pausa com ESC
+        if (e.code === 'Escape' && !gameState.isGameOver && !gameState.isLevelingUp) {
+            e.preventDefault();
+            togglePause(!gameState.paused);
+        }
+        
+        if (gameState.paused) return; // Ignora outras teclas se o jogo estiver pausado
+
         keys[e.code] = true;
         if (e.code === "Space") e.preventDefault();
         
+        // Lógica dos Cheats
         if (!isNaN(e.key)) {
             clearTimeout(sequenceTimeout);
             keySequence.push(e.key);
@@ -1660,49 +1810,53 @@ window.onload = function() {
             }
         }
 
-        if (!gameState.isGameOver && !gameState.paused) {
+        // Lógica das Habilidades
+        if (!gameState.isGameOver) {
             if (e.code === 'KeyK' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
                 firePlasmaShot();
                 playerEffects.plasmaCannon.charges--;
                 if (playerEffects.plasmaCannon.charges <= 0) {
-                    playerEffects.plasmaCannon.cooldown = playerEffects.plasmaCannon.cooldownDuration;
+                    playerEffects.plasmaCannon.cooldown = playerEffects.plasmaCannon.maxCooldown * playerStats.cooldownReduction;
                 }
                 updateUI();
             }
-            if (e.code === "KeyJ" && playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown === 0) {
-                playerEffects.energyBlade.duration = 600;
-                playerEffects.energyBlade.cooldown = 1200;
+            if (e.code === "KeyJ" && playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown <= 0) {
+                playerEffects.energyBlade.duration = playerEffects.energyBlade.maxDuration;
+                playerEffects.energyBlade.cooldown = playerEffects.energyBlade.maxCooldown * playerStats.cooldownReduction;
             }
-            if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown === 0) {
+            if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown <= 0) {
                 for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * 3; }
                 createParticles(player.x, player.y, 50, "#FFFF00", 3);
-                playerEffects.staticPulse.cooldown = 300 * playerStats.cooldownReduction;
+                playerEffects.staticPulse.cooldown = playerEffects.staticPulse.maxCooldown * playerStats.cooldownReduction;
             }
-            if (e.code === "KeyP" && playerEffects.emergencyTeleport.active && playerEffects.emergencyTeleport.cooldown === 0) {
+            if (e.code === "KeyP" && playerEffects.emergencyTeleport.active && playerEffects.emergencyTeleport.cooldown <= 0) {
                 player.x += Math.cos(player.angle) * 150; player.y += Math.sin(player.angle) * 150;
                 createParticles(player.x, player.y, 20, "#00FFFF", 2.5);
-                playerEffects.emergencyTeleport.cooldown = 180 * playerStats.cooldownReduction;
+                playerEffects.emergencyTeleport.cooldown = playerEffects.emergencyTeleport.maxCooldown * playerStats.cooldownReduction;
             }
-            if (e.code === "KeyI" && playerEffects.invisibilityCloak.active && playerEffects.invisibilityCloak.cooldown === 0) {
-                playerEffects.invisibilityCloak.duration = 300;
-                playerEffects.invisibilityCloak.cooldown = 600 * playerStats.cooldownReduction;
+            if (e.code === "KeyI" && playerEffects.invisibilityCloak.active && playerEffects.invisibilityCloak.cooldown <= 0) {
+                playerEffects.invisibilityCloak.duration = playerEffects.invisibilityCloak.maxDuration;
+                playerEffects.invisibilityCloak.cooldown = playerEffects.invisibilityCloak.maxCooldown * playerStats.cooldownReduction;
             }
-            if (e.code === "KeyO" && playerEffects.shieldOvercharge.active && playerEffects.shieldOvercharge.cooldown === 0) {
-                takeDamage(playerStats.maxHealth * -0.2);
-                playerEffects.shieldOvercharge.duration = 180;
-                playerEffects.shieldOvercharge.cooldown = 600 * playerStats.cooldownReduction;
+            if (e.code === "KeyO" && playerEffects.shieldOvercharge.active && playerEffects.shieldOvercharge.cooldown <= 0) {
+                if(playerStats.health > playerStats.maxHealth * 0.2) {
+                    takeDamage(playerStats.maxHealth * 0.2);
+                    playerEffects.shieldOvercharge.duration = playerEffects.shieldOvercharge.maxDuration;
+                    playerEffects.shieldOvercharge.cooldown = playerEffects.shieldOvercharge.maxCooldown * playerStats.cooldownReduction;
+                }
             }
         }
     });
     
     document.addEventListener("keyup", (e) => { keys[e.code] = false; if (e.code === "Space") e.preventDefault(); });
-    document.addEventListener("mousedown", () => mouseDown = true);
+    document.addEventListener("mousedown", () => { if(!gameState.paused) mouseDown = true; });
     document.addEventListener("mouseup", () => { mouseDown = false; chargeTime = 0; });
 
     function openCheatMenu() {
-        if (gameState.paused) return; // Não abre se o jogo já estiver pausado por outro motivo
-        gameState.paused = true;
-        cancelAnimationFrame(animationFrameId);
+        if (gameState.paused) return; // Não abre se já estiver pausado
+        togglePause(true); // Pausa o jogo
+        pauseMenu.classList.add('hidden'); // Garante que o menu de pausa normal esteja escondido
+
         cheatPowerupList.innerHTML = '';
         cardDatabase.forEach(card => {
             const btn = document.createElement('button');
@@ -1718,11 +1872,11 @@ window.onload = function() {
 
     function closeCheatMenu() {
         cheatMenu.classList.add('hidden');
-        gameState.paused = false;
-        gameLoop();
+        togglePause(false); // Despausa o jogo
     }
 
     closeCheatMenuBtn.addEventListener('click', closeCheatMenu);
 
+    window.addEventListener("resize", resizeCanvas);
     soundPermissionPopup.style.display = 'flex';
 };
