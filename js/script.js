@@ -140,7 +140,7 @@ window.onload = function() {
         plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, maxCooldown: gameConfig.abilities.plasmaCannon.cooldown },
         missileStorm: { active: false, shotCount: 0, shotsNeeded: 20 },
         orbitalDrones: { active: false, drones: [] },
-        energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: gameConfig.abilities.energyBlade.cooldown, maxDuration: gameConfig.abilities.energyBlade.duration },
+        energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: gameConfig.abilities.energyBlade.cooldown, maxDuration: gameConfig.abilities.energyBlade.duration, angle: 0 },
         ricochetShot: false,
         chainLightning: { active: false, chance: 0.15, bounces: 2, damage: 0.5 },
         battleFrenzy: { active: false, timer: 0, maxTime: 300 },
@@ -213,9 +213,9 @@ window.onload = function() {
 
     // Banco de Dados de Cartas com descrições detalhadas
     const cardDatabase = [
-        { id: "bifurcated_shot", name: "Tiro Bifurcado", description: "Adiciona +1 projétil ao disparo (máx. 4), mas reduz o dano de cada um para 70%.", type: "attack" },
+        { id: "bifurcated_shot", name: "Tiro Bifurcado", description: "Adiciona +1 projétil ao disparo (máx. 4).", type: "attack" },
         { id: "plasma_cannon", name: "Canhão de Plasma", description: "Tecla 'K': Dispara um tiro carregado massivo. Ganha +1 carga por upgrade.", type: "attack", key: 'K' },
-        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Passivo: Lança uma salva de 8 mísseis a cada 10 tiros. Upgrades reduzem a contagem em -1.", type: "attack" },
+        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Passivo: Lança uma salva de 8 mísseis a cada 10 tiros.", type: "attack" },
         { id: "orbital_drones", name: "Drones Orbitais", description: "Gera um drone que dispara automaticamente em inimigos próximos.", type: "attack" },
         { id: "energy_blade", name: "Lâmina de Energia", description: "Tecla 'J': Ativa uma lâmina giratória por 10s que causa dano contínuo. Recarga: 20s.", type: "attack", key: 'J' },
         { id: "ricochet_shot", name: "Tiro Ricochete", description: "Seus projéteis ricocheteiam nas bordas da tela até 2 vezes.", type: "attack" },
@@ -235,7 +235,7 @@ window.onload = function() {
         { id: "combat_focus", name: "Foco de Combate", description: "Aumenta a chance de crítico em +5%.", type: "attribute" },
         { id: "improved_reactor", name: "Reator Aprimorado", description: "Aumenta a cadência de tiro em 25%.", type: "attribute" },
         { id: "expansion_modules", name: "Módulos de Expansão", description: "Aumenta o alcance dos tiros em 30%.", type: "attribute" },
-        { id: "target_analyzer", name: "Analisador de Alvos", description: "Aumenta o dano crítico em +50%.", type: "attribute" },
+        { id: "target_analyzer", name: "Analisador de Alvos", description: "Aumenta o dano crítico em +15% e a chance de crítico em +5%.", type: "attribute" },
         { id: "magnetic_collector", name: "Coletor Magnético", description: "Aumenta o raio de coleta de XP em 20%.", type: "attribute" },
         { id: "cooldown_reducer", name: "Redutor de Recarga", description: "Diminui a recarga de todas as habilidades em 10%.", type: "attribute" },
         { id: "explorer_luck", name: "Sorte do Explorador", description: "Aumenta a sorte (chance de XP dobrado e cartas raras) em +1%.", type: "attribute" },
@@ -1436,7 +1436,7 @@ window.onload = function() {
             if (playerEffects.bifurcatedShot.active) {
                 const numShots = playerEffects.bifurcatedShot.level + 1;
                 const totalAngle = 0.25 * numShots;
-                const damagePerShot = damage * 0.7;
+                const damagePerShot = damage; // Dano não é mais reduzido
                 for (let i = 0; i < numShots; i++) {
                     const angleOffset = (numShots > 1) ? -totalAngle / 2 + (i * (totalAngle / (numShots - 1))) : 0;
                     createBullet(player.x, player.y, player.angle + angleOffset, playerStats.projectileSpeed, damagePerShot, special);
@@ -1627,7 +1627,7 @@ window.onload = function() {
                 break;
             case "missile_storm": 
                 playerEffects.missileStorm.active = true;
-                if (playerEffects.missileStorm.shotsNeeded > 2) playerEffects.missileStorm.shotsNeeded--;
+                // A contagem de tiros necessários não é mais reduzida
                 break;
             case "orbital_drones":
                 playerEffects.orbitalDrones.active = true;
@@ -1682,7 +1682,10 @@ window.onload = function() {
             case "combat_focus": playerStats.critChance += 0.05; break;
             case "improved_reactor": playerStats.fireRate *= 1.25; break;
             case "expansion_modules": playerStats.projectileRange *= 1.3; break;
-            case "target_analyzer": playerStats.critDamage += 0.5; break;
+            case "target_analyzer": 
+                playerStats.critDamage += 0.15;
+                playerStats.critChance += 0.05;
+                break;
             case "magnetic_collector": playerStats.xpCollectionRadius *= 1.2; break;
             case "cooldown_reducer": playerStats.cooldownReduction *= 0.9; break;
             case "explorer_luck": playerStats.luck += 0.01; break;
