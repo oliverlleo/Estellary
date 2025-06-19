@@ -55,14 +55,14 @@ window.onload = function() {
         // Configurações do Jogador
         player: {
             maxHealth: 100,
-            baseDamage: 10,
+            baseDamage: 12, // ATUALIZADO
             armor: 0,
-            fireRate: 2, // Tiros por segundo
+            fireRate: 2.3, 
             moveSpeed: 1.5,
             critChance: 0.05,
             critDamage: 1.5, // Fator de dano para acertos críticos
-            projectileSpeed: 5.5,
-            projectileRange: 1000, // Em pixels
+            projectileSpeed: 5.8, 
+            projectileRange: 1100, 
             xpCollectionRadius: 100,
             cooldownReduction: 1, // Fator de redução de recarga
             rotationSpeed: 0.13,
@@ -76,7 +76,7 @@ window.onload = function() {
         asteroid: {
             small:  { radius: 15, health: 10,  damage: 15, xpReward: 1 },
             medium: { radius: 30, health: 40,  damage: 30, xpReward: 5 },
-            large:  { radius: 50, health: 100, damage: 60, xpReward: 7 },
+            large:  { radius: 50, health: 80,  damage: 55, xpReward: 7 }, 
             baseSpeed: 2
         },
         // Configurações dos Chefes
@@ -97,9 +97,9 @@ window.onload = function() {
         },
         // Configurações de Habilidades
         abilities: {
-            plasmaCannon:     { cooldown: 360, damageMultiplier: 3 },
-            energyBlade:      { cooldown: 1200, duration: 600 },
-            staticPulse:      { cooldown: 300, damageMultiplier: 3 },
+            plasmaCannon:     { cooldown: 360, damageMultiplier: 1.0 }, // ATUALIZADO
+            energyBlade:      { cooldown: 900, duration: 600 }, 
+            staticPulse:      { cooldown: 300, damageMultiplier: 0.5 }, // ATUALIZADO
             emergencyTeleport:{ cooldown: 180, distance: 150 },
             invisibilityCloak:{ cooldown: 600, duration: 300 },
             shieldOvercharge: { cooldown: 600, duration: 180, healthCost: 0.2 },
@@ -145,9 +145,9 @@ window.onload = function() {
         plasmaCannon: { active: false, charges: 0, maxCharges: 4, cooldown: 0, maxCooldown: gameConfig.abilities.plasmaCannon.cooldown },
         missileStorm: { active: false, shotCount: 0, shotsNeeded: 20 },
         orbitalDrones: { active: false, drones: [] },
-        energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: gameConfig.abilities.energyBlade.cooldown, maxDuration: gameConfig.abilities.energyBlade.duration, angle: 0 },
+        energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: gameConfig.abilities.energyBlade.cooldown, maxDuration: gameConfig.abilities.energyBlade.duration, angle: 0, sizeMultiplier: 1 }, 
         ricochetShot: false,
-        chainLightning: { active: false, chance: 0.15, bounces: 2, damage: 0.5 },
+        chainLightning: { active: false, chance: 0.30, bounces: 2, damage: 0.35 }, // ATUALIZADO
         battleFrenzy: { active: false, timer: 0, maxTime: 300 },
         staticPulse: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.staticPulse.cooldown },
         spectralCannon: false,
@@ -222,7 +222,7 @@ window.onload = function() {
         { id: "plasma_cannon", name: "Canhão de Plasma", description: "Equipa um sistema de arma secundário que dispara uma esfera de plasma devastadora.", type: "attack", key: 'K' },
         { id: "missile_storm", name: "Tormenta de Mísseis", description: "Instala um lançador automático que dispara uma salva de mísseis teleguiados após uma sequência de tiros.", type: "attack" },
         { id: "orbital_drones", name: "Drones Orbitais", description: "Lança um drone de combate autônomo que orbita a nave e ataca inimigos próximos.", type: "attack" },
-        { id: "energy_blade", name: "Lâmina de Energia", description: "Ativa uma lâmina de energia cortante que gira ao redor da nave, fatiando qualquer coisa que toca.", type: "attack", key: 'J' },
+        { id: "energy_blade", name: "Lâmina de Energia", description: "Ativa uma lâmina de energia passiva, maior e mais duradoura, que corta inimigos próximos.", type: "attack" }, 
         { id: "ricochet_shot", name: "Tiro Ricochete", description: "Reveste os projéteis com uma liga especial que permite que eles ricocheteiem nas superfícies.", type: "attack" },
         { id: "chain_lightning", name: "Cadeia de Raios", description: "Permite que os projéteis, ao impactar, liberem uma descarga elétrica que salta entre múltiplos alvos.", type: "attack" },
         { id: "battle_frenzy", name: "Frenesi de Batalha", description: "Entra em um estado de frenesi após cada abate, aumentando temporariamente a velocidade dos sistemas de armas.", type: "attack" },
@@ -651,6 +651,12 @@ window.onload = function() {
             }
         });
 
+        // ATUALIZADO: Lógica passiva da Lâmina de Energia
+        if (playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown <= 0) {
+            playerEffects.energyBlade.duration = playerEffects.energyBlade.maxDuration;
+            playerEffects.energyBlade.cooldown = playerEffects.energyBlade.maxCooldown * playerStats.cooldownReduction;
+        }
+
         updateRepulsionField();
 
         if (playerEffects.battleFrenzy.active && playerEffects.battleFrenzy.timer > 0) {
@@ -674,24 +680,32 @@ window.onload = function() {
     function updateEnergyBlade() {
         if (!playerEffects.energyBlade.active || playerEffects.energyBlade.duration <= 0) return;
         playerEffects.energyBlade.angle += 0.05;
-        const bladeLength = 80;
+        const baseBladeLength = 90;
+        const bladeLength = baseBladeLength * playerEffects.energyBlade.sizeMultiplier;
+        const bladeWidth = 15 * playerEffects.energyBlade.sizeMultiplier; 
         const bladeRadius = bladeLength / 2;
         const angle = playerEffects.energyBlade.angle;
-        const p1x = player.x + Math.cos(angle) * bladeRadius;
-        const p1y = player.y + Math.sin(angle) * bladeRadius;
-        const p2x = player.x - Math.cos(angle) * bladeRadius;
-        const p2y = player.y - Math.sin(angle) * bladeRadius;
     
         if (!player.invisible) {
-            const allEnemies = [...asteroids, ...satellites];
-            if(boss) allEnemies.push(boss);
-            allEnemies.forEach(enemy => {
+            // Iterar de trás para a frente para poder remover itens com segurança
+            for (let i = asteroids.length - 1; i >= 0; i--) {
+                const enemy = asteroids[i];
+                const p1x = player.x + Math.cos(angle) * bladeRadius;
+                const p1y = player.y + Math.sin(angle) * bladeRadius;
+                const p2x = player.x - Math.cos(angle) * bladeRadius;
+                const p2y = player.y - Math.sin(angle) * bladeRadius;
+    
                 const dist1 = Math.hypot(p1x - enemy.x, p1y - enemy.y);
                 const dist2 = Math.hypot(p2x - enemy.x, p2y - enemy.y);
+    
                 if (dist1 < enemy.radius || dist2 < enemy.radius) {
                     enemy.health -= 0.5;
+                    // BUG FIX: Checar se o inimigo foi destruído e removê-lo
+                    if (enemy.health <= 0) {
+                        handleAsteroidDestruction(enemy, i);
+                    }
                 }
-            });
+            }
         }
     }
 
@@ -1161,7 +1175,7 @@ window.onload = function() {
                     createParticles(b.x, b.y, 2, "#ffff00", 1.5);
                     if(!b.special.spectral) {
                         returnToPool(b, 'bullets');
-                        bullets.splice(j, 1);
+                        bullets.splice(i, 1);
                     }
 
                     if (s.health <= 0) {
@@ -1336,8 +1350,9 @@ window.onload = function() {
     function drawEnergyBlade() {
         if (!playerEffects.energyBlade.active || playerEffects.energyBlade.duration <= 0) return;
     
-        const bladeLength = 90; 
-        const bladeWidth = 15; 
+        const baseBladeLength = 90;
+        const bladeLength = baseBladeLength * playerEffects.energyBlade.sizeMultiplier; 
+        const bladeWidth = 15 * playerEffects.energyBlade.sizeMultiplier; 
         const angle = playerEffects.energyBlade.angle;
     
         ctx.save();
@@ -1731,7 +1746,7 @@ window.onload = function() {
         switch(card.id) {
             case "bifurcated_shot":
                 playerEffects.bifurcatedShot.active = true;
-                if(playerEffects.bifurcatedShot.level < 3) playerEffects.bifurcatedShot.level++;
+                if(playerEffects.bifurcatedShot.level < 4) playerEffects.bifurcatedShot.level++; 
                 break;
             case "plasma_cannon": 
                 if (!playerEffects.plasmaCannon.active) addAbilityIcon('plasmaCannon', card.key);
@@ -1749,8 +1764,9 @@ window.onload = function() {
                 playerEffects.orbitalDrones.drones.push({ angleOffset: Math.random() * Math.PI * 2, dist: 60, fireRate: 1, lastFire: 0 });
                 break;
             case "energy_blade": 
-                if (!playerEffects.energyBlade.active) addAbilityIcon('energyBlade', card.key);
+                if (!playerEffects.energyBlade.active) addPassiveIcon('energyBlade'); 
                 playerEffects.energyBlade.active = true; 
+                playerEffects.energyBlade.sizeMultiplier = 2.5; 
                 break;
             case "ricochet_shot": 
                 if (!playerEffects.ricochetShot) addPassiveIcon('ricochetShot');
@@ -1771,7 +1787,7 @@ window.onload = function() {
                 break;
             case "reactive_shield": playerEffects.reactiveShield.active = true; break;
             case "maneuver_thrusters": playerStats.moveSpeed *= 1.25; break;
-            case "adamantium_plating": playerStats.maxHealth += 50; playerStats.health += 50; playerStats.armor += 5; break;
+            case "adamantium_plating": playerStats.maxHealth += 50; playerStats.health += 50; break;
             case "repulsion_field": 
                 playerEffects.repulsionField.active = true; 
                 playerEffects.repulsionField.maxCooldown *= 0.85;
@@ -2215,10 +2231,7 @@ window.onload = function() {
                 }
                 updateUI();
             }
-            if (e.code === "KeyJ" && playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown <= 0) {
-                playerEffects.energyBlade.duration = playerEffects.energyBlade.maxDuration;
-                playerEffects.energyBlade.cooldown = playerEffects.energyBlade.maxCooldown * playerStats.cooldownReduction;
-            }
+            // A Lâmina de Energia agora é passiva, então a tecla J não faz mais nada.
             if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown <= 0) {
                 for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * gameConfig.abilities.staticPulse.damageMultiplier; }
                 createParticles(player.x, player.y, 50, "#FFFF00", 3);
