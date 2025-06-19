@@ -91,7 +91,8 @@ window.onload = function() {
                 damage: 120,
                 speed: 0.4 * 1.2, // 20% mais rápido
                 turretDamage: 15 * 1.3, // Dano aumentado em 30%
-                laserDamagePerFrame: 0.5 * 1.3 // Dano aumentado em 30%
+                laserDamagePerFrame: 0.5 * 1.3, // Dano aumentado em 30%
+                heatAuraDamage: 0.2, // Dano por frame da aura de calor
             }
         },
         // Configurações de Habilidades
@@ -509,6 +510,8 @@ window.onload = function() {
             health: gameConfig.boss.terra.health * healthMultiplier,
             maxHealth: gameConfig.boss.terra.health * healthMultiplier,
             damage: gameConfig.boss.terra.damage,
+            shieldActive: true,
+            shieldHit: 0,
             moon: { angle: 0, distance: 120, radius: 16 }
         };
         lastSatelliteLaunch = Date.now();
@@ -536,6 +539,8 @@ window.onload = function() {
             health: marsHealth,
             maxHealth: marsHealth,
             damage: gameConfig.boss.mars.damage,
+            shieldActive: true,
+            shieldHit: 0,
             turrets: [
                 { xOffset: -105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 },
                 { xOffset: 105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 }
@@ -544,7 +549,13 @@ window.onload = function() {
                 { side: 'left', initialY: canvas.height / 3, y: canvas.height / 3, health: 150, state: 'idle', timer: 420, animationPhase: Math.random() * Math.PI * 2, currentX: -50, targetX: -50 },
                 { side: 'right', initialY: canvas.height / 3 * 2, y: canvas.height / 3 * 2, health: 150, state: 'idle', timer: 420, animationPhase: Math.random() * Math.PI * 2, currentX: canvas.width + 50, targetX: canvas.width + 50 }
             ],
-            lasers: []
+            lasers: [],
+            heatAura: {
+                active: false,
+                height: 100,
+                verticalActivationRange: 200,
+                damagePerFrame: gameConfig.boss.mars.heatAuraDamage
+            }
         };
     }
 
@@ -891,12 +902,17 @@ window.onload = function() {
 
     function updateBoss() {
         if (!boss) return;
+        
+        if (boss.shieldHit > 0) {
+            boss.shieldHit--;
+        }
 
         if (!boss.hasEntered) {
             boss.y += boss.vy;
             if (boss.y >= 150) {
                 boss.hasEntered = true;
                 boss.vx = boss.initialVx;
+                boss.shieldActive = false; // Desativa o escudo
             }
         } else {
             boss.x += boss.vx;
@@ -940,7 +956,7 @@ window.onload = function() {
         const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
         
         const satelliteInterval = 4000 * Math.pow(0.8, gameState.bossDefeats);
-        if (Date.now() - lastSatelliteLaunch > satelliteInterval) {
+        if (Date.now() - lastSatelliteLaunch > satelliteInterval && boss.hasEntered) {
             createSatellite(boss.x, boss.y, -1);
             createSatellite(boss.x, boss.y, 1);
             lastSatelliteLaunch = Date.now();
@@ -950,21 +966,30 @@ window.onload = function() {
             const b = bullets[i];
             if (!b.active) continue;
             let hit = false;
-            if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius) {
+            let hitBossBody = !player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius;
+
+            if (hitBossBody) {
+                if (boss.shieldActive) {
+                    boss.shieldHit = 10;
+                    createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
+                    hit = true;
+                } else {
+                    boss.health -= b.damage;
+                    createParticles(b.x, b.y, 5, "#ff4500", 2);
+                    hit = true;
+                }
+            } else if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius) {
                 createParticles(b.x, b.y, 3, "#cccccc", 1.5);
                 hit = true;
-            } else if (!player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius) {
-                boss.health -= b.damage;
-                createParticles(b.x, b.y, 5, "#ff4500", 2);
-                hit = true;
             }
+            
             if (hit && !b.special.spectral) {
                 returnToPool(b, 'bullets');
                 bullets.splice(i, 1);
             }
         }
 
-        if (!player.invisible && !gameState.isGameOver) {
+        if (!player.invisible && !gameState.isGameOver && !boss.shieldActive) {
             if (Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) {
                  const blocked = takeDamage(boss.damage);
                  if (!blocked) {
@@ -989,7 +1014,17 @@ window.onload = function() {
     }
 
     function updateMarsBoss() {
-        if (Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) {
+        const distY = Math.abs(player.y - boss.y);
+        if (distY < boss.heatAura.verticalActivationRange) {
+            boss.heatAura.active = true;
+            if (distY < boss.heatAura.height / 2) {
+                takeDamage(boss.heatAura.damagePerFrame);
+            }
+        } else {
+            boss.heatAura.active = false;
+        }
+
+        if (!boss.shieldActive && Math.hypot(player.x - boss.x, player.y - boss.y) < boss.radius + player.size) {
             const blocked = takeDamage(boss.damage);
             if (!blocked) {
                const angleOfCollision = Math.atan2(player.y - boss.y, player.x - boss.x);
@@ -1005,10 +1040,12 @@ window.onload = function() {
             turret.x = boss.x + turret.xOffset;
             turret.y = boss.y + turret.yOffset + Math.sin(Date.now() / 400 + turret.animationPhase) * 8;
             
-            turret.fireCooldown--;
-            if (turret.fireCooldown <= 0) {
-                createBossProjectile(turret.x, turret.y, 0, 5, gameConfig.boss.mars.turretDamage);
-                turret.fireCooldown = turret.fireRate;
+            if(boss.hasEntered) {
+                turret.fireCooldown--;
+                if (turret.fireCooldown <= 0) {
+                    createBossProjectile(turret.x, turret.y, 0, 5, gameConfig.boss.mars.turretDamage);
+                    turret.fireCooldown = turret.fireRate;
+                }
             }
         });
         
@@ -1024,7 +1061,7 @@ window.onload = function() {
             if (!ship.initialY) ship.initialY = ship.y;
             ship.y = ship.initialY + Math.sin(Date.now() / 600 + ship.animationPhase) * 5;
 
-            ship.timer--;
+            if(boss.hasEntered) ship.timer--;
             switch(ship.state) {
                 case 'idle': if (ship.timer <= 0 && ship.health > 0) { ship.state = 'entering'; ship.targetX = onScreenX; } break;
                 case 'entering': if (Math.abs(ship.currentX - ship.targetX) < 1) { ship.state = 'charging'; ship.timer = 120; } break;
@@ -1038,7 +1075,6 @@ window.onload = function() {
         for (let i = boss.lasers.length - 1; i >= 0; i--) {
             const laser = boss.lasers[i];
             laser.life--;
-            // CORREÇÃO: Colisão do Laser ajustada para corresponder à área visual (altura de 40px)
             if (player.y + player.size > laser.y - 20 && player.y - player.size < laser.y + 20) {
                 if (!takeDamage(gameConfig.boss.mars.laserDamagePerFrame)) {
                     createParticles(player.x, laser.y, 2, 'red', 1.5);
@@ -1053,11 +1089,20 @@ window.onload = function() {
             const b = bullets[i];
             if (!b.active) continue;
             let hit = false;
-            if (!player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius) {
-                boss.health -= b.damage;
-                createParticles(b.x, b.y, 5, "#ff4500", 2);
-                hit = true;
+            let hitBossBody = !player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius;
+
+            if (hitBossBody) {
+                if (boss.shieldActive) {
+                    boss.shieldHit = 10;
+                    createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
+                    hit = true;
+                } else {
+                    boss.health -= b.damage;
+                    createParticles(b.x, b.y, 5, "#ff4500", 2);
+                    hit = true;
+                }
             }
+
             boss.turrets.forEach(turret => {
                 if (turret.health > 0 && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius) {
                     turret.health -= b.damage;
@@ -1357,12 +1402,27 @@ window.onload = function() {
 
     function drawBoss() {
         if (!boss) return;
+        
         if (boss.type === 'terra') {
             const moonX = boss.x + Math.cos(boss.moon.angle) * boss.moon.distance;
             const moonY = boss.y + Math.sin(boss.moon.angle) * boss.moon.distance;
             if (earthImage.loadSuccess !== false) ctx.drawImage(earthImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
             if (moonImage.loadSuccess !== false) ctx.drawImage(moonImage, moonX - boss.moon.radius, moonY - boss.moon.radius, boss.moon.radius * 2, boss.moon.radius * 2);
         } else if (boss.type === 'marte') {
+            if (boss.heatAura.active) {
+                ctx.save();
+                const alpha = (1 - (Math.abs(player.y - boss.y) / boss.heatAura.verticalActivationRange)) * 0.4;
+                const gradient = ctx.createLinearGradient(0, boss.y - boss.heatAura.height / 2, 0, boss.y + boss.heatAura.height / 2);
+
+                gradient.addColorStop(0, `rgba(255, 100, 0, 0)`);
+                gradient.addColorStop(0.5, `rgba(255, 0, 0, ${Math.min(alpha, 0.4)})`);
+                gradient.addColorStop(1, `rgba(255, 100, 0, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, boss.y - boss.heatAura.height / 2, canvas.width, boss.heatAura.height);
+                ctx.restore();
+            }
+
             ctx.drawImage(marsImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
             boss.turrets.forEach(turret => {
                 if (turret.health > 0) {
@@ -1391,9 +1451,22 @@ window.onload = function() {
                 ctx.fillStyle = `rgba(255, 0, 0, ${0.5 * (laser.life / 120)})`;
                 const startX = laser.side === 'left' ? laser.originX : 0;
                 const width = laser.side === 'left' ? canvas.width - laser.originX : laser.originX;
-                ctx.fillRect(startX, laser.y - 20, width, 40); // Corrigido para centralizar o laser
+                ctx.fillRect(startX, laser.y - 20, width, 40);
                 ctx.restore();
             });
+        }
+        
+        if (boss.shieldHit > 0) {
+            ctx.save();
+            const shieldAlpha = (boss.shieldHit / 10) * 0.7;
+            ctx.strokeStyle = `rgba(0, 255, 255, ${shieldAlpha})`;
+            ctx.fillStyle = `rgba(0, 255, 255, ${shieldAlpha * 0.2})`;
+            ctx.lineWidth = 2 + (boss.shieldHit / 10) * 3;
+            ctx.beginPath();
+            ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fill();
+            ctx.restore();
         }
     }
 
