@@ -457,14 +457,6 @@ body {
     animation: pulse-super 1.5s infinite;
 }
 
-/* Estilo para o card/botão selecionado */
-.selected {
-    border-color: #ffff00 !important; /* Amarelo brilhante */
-    box-shadow: 0 0 25px rgba(255, 255, 0, 0.7) !important;
-    transform: translateY(-5px) scale(1.05) !important;
-}
-
-
 #controls {
     position: absolute;
     bottom: 20px;
