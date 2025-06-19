@@ -60,11 +60,11 @@ window.onload = function() {
             fireRate: 2, // Tiros por segundo
             moveSpeed: 1.5,
             critChance: 0.05,
-            critDamage: 1.5, // Multiplicador
+            critDamage: 1.5, // Fator de dano para acertos críticos
             projectileSpeed: 5.5,
             projectileRange: 1000, // Em pixels
             xpCollectionRadius: 100,
-            cooldownReduction: 1, // 1 = 100% (sem redução)
+            cooldownReduction: 1, // Fator de redução de recarga
             rotationSpeed: 0.13,
             luck: 0.1, // Chance de eventos positivos
             size: 15,
@@ -87,12 +87,12 @@ window.onload = function() {
                 speed: 0.7
             },
             mars: {
-                health: 800 * 0.65, // Vida reduzida em 35%
+                health: 800 * 0.65, // Vida ajustada para balanceamento
                 damage: 120,
-                speed: 0.4 * 1.2, // 20% mais rápido
-                turretDamage: 15 * 1.3, // Dano aumentado em 30%
-                laserDamagePerFrame: 0.5 * 1.3, // Dano aumentado em 30%
-                heatAuraDamage: 0.2, // Dano por frame da aura de calor
+                speed: 0.4 * 1.2, // Velocidade ajustada para balanceamento
+                turretDamage: 15 * 1.3, // Dano da torreta ajustado para balanceamento
+                laserDamagePerFrame: 0.5 * 1.3, // Dano do laser ajustado para balanceamento
+                heatAuraDamage: 0.2, // Dano contínuo da aura de calor
             }
         },
         // Configurações de Habilidades
@@ -123,6 +123,10 @@ window.onload = function() {
         rerollsAvailableThisLevel: 1, sector: 1, time: 0, score: 0, bossActive: false,
         postBossMode: false, bossDefeats: 0, isGameOver: false
     };
+
+    // Variáveis para controle de menu por teclado
+    let selectedCardIndex = 0;
+    let selectedPauseMenuIndex = 0;
 
     // Os stats do jogador agora são inicializados a partir do gameConfig
     const initialPlayerStats = {
@@ -214,35 +218,35 @@ window.onload = function() {
 
     // Banco de Dados de Cartas com descrições detalhadas
     const cardDatabase = [
-        { id: "bifurcated_shot", name: "Tiro Bifurcado", description: "Adiciona +1 projétil ao disparo (máx. 4).", type: "attack" },
-        { id: "plasma_cannon", name: "Canhão de Plasma", description: "Tecla 'K': Dispara um tiro carregado massivo. Ganha +1 carga por upgrade.", type: "attack", key: 'K' },
-        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Passivo: Lança uma salva de 8 mísseis a cada 10 tiros.", type: "attack" },
-        { id: "orbital_drones", name: "Drones Orbitais", description: "Gera um drone que dispara automaticamente em inimigos próximos.", type: "attack" },
-        { id: "energy_blade", name: "Lâmina de Energia", description: "Tecla 'J': Ativa uma lâmina giratória por 10s que causa dano contínuo. Recarga: 20s.", type: "attack", key: 'J' },
-        { id: "ricochet_shot", name: "Tiro Ricochete", description: "Seus projéteis ricocheteiam nas bordas da tela até 2 vezes.", type: "attack" },
-        { id: "chain_lightning", name: "Cadeia de Raios", description: "15% de chance dos tiros criarem um raio que salta para inimigos. Upgrades adicionam +1 salto.", type: "attack" },
-        { id: "battle_frenzy", name: "Frenesi de Batalha", description: "Aumenta a cadência de tiro em 50% por 5s após destruir um inimigo.", type: "attack" },
-        { id: "static_pulse", name: "Pulso Estático", description: "Tecla 'U': Emite uma onda de choque que causa dano em área. Recarga: 5s.", type: "attack", key: 'U' },
-        { id: "spectral_cannon", name: "Canhão Espectral", description: "Seus projéteis atravessam inimigos, podendo atingir múltiplos alvos.", type: "attack" },
-        { id: "reactive_shield", name: "Escudo Reativo", description: "Ao receber dano, bloqueia todos os ataques por 2s. Recarrega em 30s.", type: "defense" },
-        { id: "maneuver_thrusters", name: "Propulsores de Manobra", description: "Aumenta a velocidade de movimento em 25%.", type: "defense" },
-        { id: "adamantium_plating", name: "Placas de Adamântio", description: "Aumenta a vida máxima em +50 e a armadura em +5.", type: "defense" },
-        { id: "repulsion_field", name: "Campo de Repulsão", description: "Emite um pulso de repulsão a cada 30s. Upgrades diminuem a recarga e aumentam o raio.", type: "defense" },
-        { id: "emergency_teleport", name: "Teleporte de Emergência", description: "Tecla 'P': Teleporta a nave para frente. Recarga: 3s.", type: "defense", key: 'P' },
-        { id: "nanobot_regeneration", name: "Regeneração Nanobótica", description: "Regenera 0.5% da vida máxima por segundo.", type: "defense" },
-        { id: "invisibility_cloak", name: "Manto de Invisibilidade", description: "Tecla 'I': Fica invisível e ignora colisões por 5s. Recarga: 10s.", type: "defense", key: 'I' },
-        { id: "shield_overcharge", name: "Sobrecarga de Escudo", description: "Tecla 'O': Fica invulnerável por 3s, mas consome 20% da vida atual. Recarga: 10s.", type: "defense", key: 'O' },
-        { id: "fine_calibration", name: "Calibragem Fina", description: "Aumenta a velocidade dos projéteis em 20%.", type: "attribute" },
-        { id: "combat_focus", name: "Foco de Combate", description: "Aumenta a chance de crítico em +5%.", type: "attribute" },
-        { id: "improved_reactor", name: "Reator Aprimorado", description: "Aumenta a cadência de tiro em 25%.", type: "attribute" },
-        { id: "expansion_modules", name: "Módulos de Expansão", description: "Aumenta o alcance dos tiros em 30%.", type: "attribute" },
-        { id: "target_analyzer", name: "Analisador de Alvos", description: "Aumenta o dano crítico em +15% e a chance de crítico em +5%.", type: "attribute" },
-        { id: "magnetic_collector", name: "Coletor Magnético", description: "Aumenta o raio de coleta de XP em 20%.", type: "attribute" },
-        { id: "cooldown_reducer", name: "Redutor de Recarga", description: "Diminui a recarga de todas as habilidades em 10%.", type: "attribute" },
-        { id: "explorer_luck", name: "Sorte do Explorador", description: "Aumenta a sorte (chance de XP dobrado e cartas raras) em +1%.", type: "attribute" },
-        { id: "reinforced_chassis", name: "Chassi Reforçado", description: "Aumenta a vida máxima em +35.", type: "health" },
-        { id: "armor_plating", name: "Placas de Blindagem", description: "Adiciona +3 de armadura.", type: "health" },
-        { id: "hull_shield", name: "Escudo de Fuselagem", description: "Converte 30% da vida máxima em um escudo que se regenera lentamente.", type: "health" }
+        { id: "bifurcated_shot", name: "Tiro Bifurcado", description: "Modifica o canhão principal para disparar projéteis adicionais em um arco.", type: "attack" },
+        { id: "plasma_cannon", name: "Canhão de Plasma", description: "Equipa um sistema de arma secundário que dispara uma esfera de plasma devastadora.", type: "attack", key: 'K' },
+        { id: "missile_storm", name: "Tormenta de Mísseis", description: "Instala um lançador automático que dispara uma salva de mísseis teleguiados após uma sequência de tiros.", type: "attack" },
+        { id: "orbital_drones", name: "Drones Orbitais", description: "Lança um drone de combate autônomo que orbita a nave e ataca inimigos próximos.", type: "attack" },
+        { id: "energy_blade", name: "Lâmina de Energia", description: "Ativa uma lâmina de energia cortante que gira ao redor da nave, fatiando qualquer coisa que toca.", type: "attack", key: 'J' },
+        { id: "ricochet_shot", name: "Tiro Ricochete", description: "Reveste os projéteis com uma liga especial que permite que eles ricocheteiem nas superfícies.", type: "attack" },
+        { id: "chain_lightning", name: "Cadeia de Raios", description: "Permite que os projéteis, ao impactar, liberem uma descarga elétrica que salta entre múltiplos alvos.", type: "attack" },
+        { id: "battle_frenzy", name: "Frenesi de Batalha", description: "Entra em um estado de frenesi após cada abate, aumentando temporariamente a velocidade dos sistemas de armas.", type: "attack" },
+        { id: "static_pulse", name: "Pulso Estático", description: "Libera uma onda de choque eletromagnética que se expande a partir da nave, danificando tudo em seu raio.", type: "attack", key: 'U' },
+        { id: "spectral_cannon", name: "Canhão Espectral", description: "Altera a fase dos projéteis, permitindo que atravessem múltiplos inimigos em linha reta.", type: "attack" },
+        { id: "reactive_shield", name: "Escudo Reativo", description: "Um escudo de emergência que ativa automaticamente ao sofrer dano, concedendo invulnerabilidade temporária.", type: "defense" },
+        { id: "maneuver_thrusters", name: "Propulsores de Manobra", description: "Melhora os propulsores, resultando em uma nave mais ágil e rápida.", type: "defense" },
+        { id: "adamantium_plating", name: "Placas de Adamântio", description: "Reforça a fuselagem com placas de metal super-resistente, aumentando a durabilidade geral da nave.", type: "defense" },
+        { id: "repulsion_field", name: "Campo de Repulsão", description: "Gera um campo de força passivo que emite pulsos periódicos, empurrando para longe ameaças próximas.", type: "defense" },
+        { id: "emergency_teleport", name: "Teleporte de Emergência", description: "Permite um salto espacial de curta distância na direção em que a nave está apontada.", type: "defense", key: 'P' },
+        { id: "nanobot_regeneration", name: "Regeneração Nanobótica", description: "Injeta nanorrobôs no casco que reparam continuamente os danos sofridos pela nave.", type: "defense" },
+        { id: "invisibility_cloak", name: "Manto de Invisibilidade", description: "Ativa um dispositivo de camuflagem que torna a nave invisível e intangível por um curto período.", type: "defense", key: 'I' },
+        { id: "shield_overcharge", name: "Sobrecarga de Escudo", description: "Desvia energia dos sistemas para os escudos, garantindo invulnerabilidade total em troca de um custo.", type: "defense", key: 'O' },
+        { id: "fine_calibration", name: "Calibragem Fina", description: "Ajusta os aceleradores de projéteis, fazendo com que os tiros viajem mais rápido.", type: "attribute" },
+        { id: "combat_focus", name: "Foco de Combate", description: "Otimiza os sistemas de mira, aumentando a probabilidade de causar danos críticos aos pontos fracos do inimigo.", type: "attribute" },
+        { id: "improved_reactor", name: "Reator Aprimorado", description: "Melhora o reator da nave, permitindo que as armas disparem com mais frequência.", type: "attribute" },
+        { id: "expansion_modules", name: "Módulos de Expansão", description: "Aumenta a energia dos projéteis, permitindo que eles viajem distâncias maiores antes de se dissiparem.", type: "attribute" },
+        { id: "target_analyzer", name: "Analisador de Alvos", description: "Instala um software de análise de alvo que melhora a eficácia dos acertos críticos.", type: "attribute" },
+        { id: "magnetic_collector", name: "Coletor Magnético", description: "Amplifica o campo magnético da nave, atraindo orbes de experiência de uma distância maior.", type: "attribute" },
+        { id: "cooldown_reducer", name: "Redutor de Recarga", description: "Otimiza os sistemas de habilidades, permitindo que sejam usados com mais frequência.", type: "attribute" },
+        { id: "explorer_luck", name: "Sorte do Explorador", description: "Equipa um sensor de anomalias que aumenta a chance de encontrar recursos raros e obter mais experiência.", type: "attribute" },
+        { id: "reinforced_chassis", name: "Chassi Reforçado", description: "Fortalece a estrutura interna da nave, aumentando sua capacidade de suportar danos.", type: "health" },
+        { id: "armor_plating", name: "Placas de Blindagem", description: "Adiciona camadas extras de blindagem ao casco, reduzindo o dano recebido de todas as fontes.", type: "health" },
+        { id: "hull_shield", name: "Escudo de Fuselagem", description: "Converte parte da integridade estrutural da nave em um escudo de energia que se regenera fora de combate.", type: "health" }
     ];
 
     // --- 3. DEFINIÇÕES DE FUNÇÕES ---
@@ -653,7 +657,7 @@ window.onload = function() {
             playerEffects.battleFrenzy.timer--;
         }
         if (playerEffects.nanobotRegeneration && playerStats.health < playerStats.maxHealth) {
-             playerStats.health += (playerStats.maxHealth * 0.005) / 60; // Regenera 0.5% por segundo
+             playerStats.health += (playerStats.maxHealth * 0.005) / 60; // Aplica a regeneração de vida passiva
         }
         if (playerEffects.hullShield.active && playerEffects.hullShield.shield < playerEffects.hullShield.maxShield) {
             playerEffects.hullShield.shield += 0.1;
@@ -1585,7 +1589,44 @@ window.onload = function() {
         rerollButton.disabled = gameState.rerollsAvailableThisLevel <= 0;
         rerollButton.textContent = `Rerolar (${gameState.rerollsAvailableThisLevel})`;
 
+        selectedCardIndex = 0; // Reset index for keyboard navigation
         generateCards();
+        updateCardSelection(); // Highlight the first card
+    }
+
+    function updateCardSelection() {
+        const cards = document.querySelectorAll('#cardContainer .card');
+        cards.forEach((card, index) => {
+            const originalBorderColor = card.classList.contains('card-attack') ? '#ff4500' :
+                                      card.classList.contains('card-defense') ? '#00BFFF' :
+                                      card.classList.contains('card-attribute') ? '#9ACD32' :
+                                      card.classList.contains('card-health') ? '#32CD32' : '#444';
+
+            if (index === selectedCardIndex) {
+                card.style.borderColor = '#00ff00';
+                card.style.boxShadow = '0 0 25px rgba(0, 255, 255, 0.8)';
+                card.style.transform = 'translateY(-10px) scale(1.05)';
+            } else {
+                card.style.borderColor = originalBorderColor;
+                card.style.boxShadow = '';
+                card.style.transform = '';
+            }
+        });
+    }
+
+    function updatePauseMenuSelection() {
+        const buttons = pauseMenu.querySelectorAll('button');
+        buttons.forEach((button, index) => {
+            if (index === selectedPauseMenuIndex) {
+                button.style.background = 'linear-gradient(145deg, #00cc00, #009900)';
+                button.style.transform = 'scale(1.1)';
+                button.style.boxShadow = '0 0 15px #00ff00';
+            } else {
+                button.style.background = ''; // Reset to CSS default
+                button.style.transform = '';
+                button.style.boxShadow = '';
+            }
+        });
     }
     
     // MELHORIA: Diferenciação visual das cartas
@@ -1628,6 +1669,7 @@ window.onload = function() {
                 });
             });
         }
+        updateCardSelection();
     }
     
     function showNotification(message) {
@@ -1986,6 +2028,8 @@ window.onload = function() {
             cancelAnimationFrame(animationFrameId);
             if (!fromLevelUp) {
                 pauseMenu.classList.remove('hidden');
+                selectedPauseMenuIndex = 0; // Reset index
+                updatePauseMenuSelection();
             }
         } else if (!shouldPause && gameState.paused) {
             if (gameState.isLevelingUp) return;
@@ -2031,25 +2075,28 @@ window.onload = function() {
         prewarmPools();
         gameLoop();
     }
-
-    playButton.addEventListener("click", () => {
-        introScreen.classList.add("hidden");
-        canvas.classList.remove("hidden");
-        xpBarContainer.classList.remove("hidden");
-        healthBarContainer.classList.remove("hidden");
-        controls.classList.remove("hidden");
-        scoreContainer.classList.remove("hidden");
-        abilityCooldownsContainer.classList.remove("hidden");
-        passivePowerupsContainer.classList.remove("hidden");
-        damageFlashEffect.classList.remove('hidden');
-        introMusic.pause();
-        if (soundEnabled) {
-            gameMusic.currentTime = 0;
-            gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
+    
+    function startGameFlow() {
+        if (!introScreen.classList.contains('hidden')) {
+            introScreen.classList.add("hidden");
+            canvas.classList.remove("hidden");
+            xpBarContainer.classList.remove("hidden");
+            healthBarContainer.classList.remove("hidden");
+            controls.classList.remove("hidden");
+            scoreContainer.classList.remove("hidden");
+            abilityCooldownsContainer.classList.remove("hidden");
+            passivePowerupsContainer.classList.remove("hidden");
+            damageFlashEffect.classList.remove('hidden');
+            introMusic.pause();
+            if (soundEnabled) {
+                gameMusic.currentTime = 0;
+                gameMusic.play().catch(e => console.error("A reprodução da música do jogo falhou:", e));
+            }
+            initGame();
         }
-        initGame();
-    });
+    }
 
+    playButton.addEventListener("click", startGameFlow);
     restartButton.addEventListener('click', () => {
         gameOverSound.pause();
         gameOverSound.currentTime = 0;
@@ -2071,16 +2118,73 @@ window.onload = function() {
     });
 
     document.addEventListener("keydown", (e) => {
-        if (e.code === 'Escape' && !gameState.isGameOver) {
-            e.preventDefault();
-            togglePause(!gameState.paused, { fromLevelUp: gameState.isLevelingUp });
+        // --- CONTROLES DE MENU ---
+
+        // Tela de Introdução
+        if (!introScreen.classList.contains("hidden")) {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                startGameFlow();
+            }
+            return;
+        }
+
+        // Tela de Game Over
+        if (!gameOverScreen.classList.contains("hidden")) {
+            if (e.code === 'Enter' || e.code === 'Space') {
+                restartButton.click();
+            }
+            return;
         }
         
-        if (gameState.paused && !gameState.isLevelingUp) return;
+        // Menu de Pausa
+        if (gameState.paused && !gameState.isLevelingUp) {
+            const buttons = pauseMenu.querySelectorAll('button');
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+                selectedPauseMenuIndex = (selectedPauseMenuIndex - 1 + buttons.length) % buttons.length;
+                updatePauseMenuSelection();
+            } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+                selectedPauseMenuIndex = (selectedPauseMenuIndex + 1) % buttons.length;
+                updatePauseMenuSelection();
+            } else if (e.code === 'Enter' || e.code === 'Space') {
+                buttons[selectedPauseMenuIndex].click();
+            } else if (e.code === 'Escape') {
+                 togglePause(false);
+            }
+            return;
+        }
+
+        // Tela de Level Up
+        if (gameState.isLevelingUp) {
+            const cards = document.querySelectorAll('#cardContainer .card');
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                selectedCardIndex = (selectedCardIndex - 1 + cards.length) % cards.length;
+                updateCardSelection();
+            } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                selectedCardIndex = (selectedCardIndex + 1) % cards.length;
+                updateCardSelection();
+            } else if (e.code === 'Enter' || e.code === 'Space') {
+                if (cards[selectedCardIndex]) {
+                    cards[selectedCardIndex].querySelector('button').click();
+                }
+            }
+            return;
+        }
+        
+        // --- CONTROLES DE JOGABILIDADE ---
+        
+        // Pausar jogo
+        if (e.code === 'Escape' && !gameState.isGameOver) {
+            e.preventDefault();
+            togglePause(!gameState.paused);
+        }
+        
+        // Ignora outras teclas se estiver pausado
+        if (gameState.paused) return;
 
         keys[e.code] = true;
         if (e.code === "Space") e.preventDefault();
         
+        // Códigos de trapaça
         if (!isNaN(e.key)) {
             clearTimeout(sequenceTimeout);
             keySequence.push(e.key);
@@ -2101,6 +2205,7 @@ window.onload = function() {
             }
         }
 
+        // Habilidades
         if (!gameState.isGameOver) {
             if (e.code === 'KeyK' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
                 firePlasmaShot();
