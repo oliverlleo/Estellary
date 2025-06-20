@@ -65,9 +65,9 @@ window.onload = function() {
             projectileRange: 1000, 
             xpCollectionRadius: 100,
             cooldownReduction: 1, // Fator de redução de recarga
-            rotationSpeed: 0.13,
+            rotationSpeed: 0.08, 
             luck: 0.1, // Chance de eventos positivos
-            size: 30.375, // RESTAURADO
+            size: 30.375, 
             bobbingSpeed: 400, // Velocidade da flutuação
             bobbingAmount: 2,   // Amplitude da flutuação
             tiltAmount: 0.25   // Inclinação ao virar
@@ -82,12 +82,12 @@ window.onload = function() {
         // Configurações dos Chefes
         boss: {
             terra: {
-                health: 500,
+                health: 400,
                 damage: 100,
                 speed: 0.7
             },
             mars: {
-                health: 800 * 0.65, 
+                health: 500, 
                 damage: 120,
                 speed: 0.4 * 1.2, 
                 turretDamage: 15 * 1.3,
@@ -121,7 +121,8 @@ window.onload = function() {
     const gameState = {
         paused: false, isLevelingUp: false, level: 1, xp: 0, xpRequired: 5,
         rerollsAvailableThisLevel: 1, sector: 1, time: 0, score: 0, bossActive: false,
-        postBossMode: false, bossDefeats: 0, isGameOver: false
+        postBossMode: false, bossDefeats: 0, isGameOver: false,
+        doublePickActive: false // CORREÇÃO BUG SORTE
     };
 
     // Variáveis para controle de menu por teclado
@@ -535,7 +536,7 @@ window.onload = function() {
             health: gameConfig.boss.terra.health * healthMultiplier,
             maxHealth: gameConfig.boss.terra.health * healthMultiplier,
             damage: gameConfig.boss.terra.damage,
-            damageReduction: 0, // Removido
+            damageReduction: 0, // REVERTIDO
             shieldActive: true,
             shieldHit: 0,
             moon: { angle: 0, distance: 120, radius: 16 }
@@ -565,7 +566,7 @@ window.onload = function() {
             health: marsHealth,
             maxHealth: marsHealth,
             damage: gameConfig.boss.mars.damage,
-            damageReduction: 0, // Removido
+            damageReduction: 0, // REVERTIDO
             shieldActive: true,
             shieldHit: 0,
             turrets: [
@@ -1679,8 +1680,9 @@ window.onload = function() {
             cardElement.innerHTML = `<h3>SUPER CARTA!</h3><p>Escolha um power-up duas vezes!</p><button>Escolher</button>`;
             cardContainer.appendChild(cardElement);
             cardElement.querySelector("button").addEventListener("click", () => {
-                showLevelUpScreen(); 
-                showLevelUpScreen(); 
+                gameState.doublePickActive = true;
+                levelUpScreen.classList.add("hidden");
+                showLevelUpScreen();
             });
         } else {
             for (let i = 0; i < 3; i++) {
@@ -1697,10 +1699,15 @@ window.onload = function() {
                 cardContainer.appendChild(cardElement);
                 cardElement.querySelector("button").addEventListener("click", () => {
                     applyCardEffect(card);
-                    levelUpScreen.classList.add("hidden");
-                    rerollButton.classList.add("hidden");
-                    gameState.isLevelingUp = false;
-                    togglePause(false);
+                    if (gameState.doublePickActive) {
+                        gameState.doublePickActive = false;
+                        showLevelUpScreen();
+                    } else {
+                        levelUpScreen.classList.add("hidden");
+                        rerollButton.classList.add("hidden");
+                        gameState.isLevelingUp = false;
+                        togglePause(false);
+                    }
                 });
             });
         }
@@ -2312,7 +2319,7 @@ window.onload = function() {
 
     function openCheatMenu() {
         if (gameState.paused) return;
-        togglePause(true, { showPauseUI: false }); // ATUALIZADO
+        togglePause(true, { showPauseUI: false }); 
         cheatMenu.classList.remove('hidden');
         
         cheatPowerupList.innerHTML = '';
