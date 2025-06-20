@@ -344,7 +344,10 @@ window.onload = function() {
         const x = Math.random() * canvas.width;
         const y = -radius;
         const speedMultiplier = 1 + (gameState.bossDefeats * 0.20);
-        blueMeteors.push({ x: x, y: y, vx: (Math.random() - 0.5) * 2, vy: (2 + Math.random()) * speedMultiplier, radius: radius, damage: 20 });
+        // MODIFICAÇÃO: Trajetória diagonal para a esquerda e para baixo
+        const vx = -1 - Math.random() * 1.5; // Sempre move para a esquerda
+        const vy = (3 + Math.random()) * speedMultiplier; // Sempre move para baixo
+        blueMeteors.push({ x: x, y: y, vx: vx, vy: vy, radius: radius, damage: 20 });
     }
 
     // Refatorado para usar Object Pooling
@@ -373,6 +376,13 @@ window.onload = function() {
         b.rotation = 0;
         b.bounced = 0;
         b.hitTargets = [];
+
+        // MODIFICAÇÃO: Definir o raio de colisão do projétil
+        if (special.plasma && special.size) {
+            b.radius = special.size / 2; // O raio é metade do tamanho visual
+        } else {
+            b.radius = 5; // Raio padrão para projéteis normais
+        }
         
         bullets.push(b);
     }
@@ -916,8 +926,12 @@ window.onload = function() {
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
                 if (!b.active || b.hitTargets.includes(a)) continue;
-                if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius) {
+                if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius + b.radius) {
                     dealDamageToEnemy(a, b.damage);
+                    // Otimização: Gera partículas apenas se não for um tiro espectral
+                    if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
+                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+                    }
                     if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
                         createLightningBolt(b.x, b.y, a, playerEffects.chainLightning.bounces, playerStats.baseDamage * playerEffects.chainLightning.damage, [a]);
                     }
@@ -986,6 +1000,7 @@ window.onload = function() {
             bossWarningBorder.classList.add('hidden');
             gameState.postBossMode = true;
             gameState.bossDefeats++;
+            playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.60);
             lastBlueMeteorWaveTime = Date.now();
             const asteroidsToSpawn = 7 + gameState.bossDefeats;
             for (let i = 0; i < asteroidsToSpawn; i++) createAsteroid("large");
@@ -1008,7 +1023,7 @@ window.onload = function() {
             const b = bullets[i];
             if (!b.active || b.hitTargets.includes(boss)) continue;
             let hit = false;
-            let hitBossBody = !player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius;
+            let hitBossBody = !player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius + b.radius;
 
             if (hitBossBody) {
                 if (boss.shieldActive) {
@@ -1017,11 +1032,17 @@ window.onload = function() {
                     hit = true;
                 } else {
                     dealDamageToEnemy(boss, b.damage);
-                    b.hitTargets.push(boss); // CORREÇÃO BUG
+                    if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
+                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+                    }
+                    b.hitTargets.push(boss);
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
                     hit = true;
                 }
-            } else if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius) {
+            } else if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius + b.radius) {
+                if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
+                    createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+                }
                 createParticles(b.x, b.y, 3, "#cccccc", 1.5);
                 hit = true;
             }
@@ -1132,7 +1153,7 @@ window.onload = function() {
             const b = bullets[i];
             if (!b.active) continue;
             let hit = false;
-            let hitBossBody = !player.invisible && !b.hitTargets.includes(boss) && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius;
+            let hitBossBody = !player.invisible && !b.hitTargets.includes(boss) && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius + b.radius;
 
             if (hitBossBody) {
                 if (boss.shieldActive) {
@@ -1141,16 +1162,22 @@ window.onload = function() {
                     hit = true;
                 } else {
                     dealDamageToEnemy(boss, b.damage);
-                    b.hitTargets.push(boss); // CORREÇÃO BUG
+                    if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
+                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+                    }
+                    b.hitTargets.push(boss);
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
                     hit = true;
                 }
             }
 
             boss.turrets.forEach(turret => {
-                if (turret.health > 0 && !b.hitTargets.includes(turret) && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius) {
+                if (turret.health > 0 && !b.hitTargets.includes(turret) && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius + b.radius) {
                     dealDamageToEnemy(turret, b.damage);
-                    b.hitTargets.push(turret); // CORREÇÃO BUG
+                     if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
+                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+                    }
+                    b.hitTargets.push(turret);
                     hit = true;
                     if(turret.health <= 0) createParticles(turret.x, turret.y, 50, "#FFA500", 5, 40);
                     else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
@@ -1158,9 +1185,12 @@ window.onload = function() {
             });
             boss.laserShips.forEach(ship => {
                 if (ship.state !== 'idle' && ship.health > 0 && !b.hitTargets.includes(ship)) {
-                    if (Math.hypot(b.x - ship.currentX, b.y - ship.y) < 30) {
+                    if (Math.hypot(b.x - ship.currentX, b.y - ship.y) < 30 + b.radius) {
                         dealDamageToEnemy(ship, b.damage);
-                        b.hitTargets.push(ship); // CORREÇÃO BUG
+                        if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
+                            createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+                        }
+                        b.hitTargets.push(ship);
                          hit = true;
                          if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500", 5, 40);
                          else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
@@ -1195,8 +1225,11 @@ window.onload = function() {
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
                 if (!b.active) continue;
-                if (!player.invisible && Math.hypot(b.x - s.x, b.y - s.y) < s.radius) {
+                if (!player.invisible && Math.hypot(b.x - s.x, b.y - s.y) < s.radius + b.radius) {
                     dealDamageToEnemy(s, b.damage);
+                    if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
+                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+                    }
                      if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
                         createLightningBolt(b.x, b.y, s, playerEffects.chainLightning.bounces, playerStats.baseDamage * playerEffects.chainLightning.damage, [s]);
                     }
@@ -1613,7 +1646,7 @@ window.onload = function() {
         gameState.xp -= gameState.xpRequired; 
         gameState.xpRequired = Math.floor(5 * Math.pow(gameState.level, 1.5));
         gameState.rerollsAvailableThisLevel = 1;
-        playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.20);
+        playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + 20 + (playerStats.maxHealth * 0.10));
         updateUI();
         showLevelUpScreen();
     }
@@ -2356,8 +2389,7 @@ window.onload = function() {
     document.addEventListener("mouseup", () => { mouseDown = false; });
 
     document.addEventListener('mousemove', (e) => {
-        mousePos.x = e.clientX;
-        mousePos.y = e.clientY;
+        // Este evento não faz mais nada relacionado à mira da nave.
     });
 
     function openCheatMenu() {
@@ -2419,3 +2451,4 @@ window.onload = function() {
     soundPermissionPopup.style.display = 'flex';
     updateSoundPermissionSelection();
 };
+
