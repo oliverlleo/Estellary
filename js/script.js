@@ -46,6 +46,7 @@ window.onload = function() {
     const passivePowerupsContainer = document.getElementById("passivePowerupsContainer");
     const damageFlashEffect = document.getElementById("damageFlashEffect");
     const notificationContainer = document.getElementById("notificationContainer");
+    const bossRewardScreen = document.getElementById("bossRewardScreen");
 
 
     // --- MELHORIA: CENTRALIZAÇÃO DE CONSTANTES ---
@@ -122,7 +123,8 @@ window.onload = function() {
         paused: false, isLevelingUp: false, level: 1, xp: 0, xpRequired: 5,
         rerollsAvailableThisLevel: 1, sector: 1, time: 0, score: 0, bossActive: false,
         postBossMode: false, bossDefeats: 0, isGameOver: false,
-        doublePickActive: false 
+        doublePickActive: false,
+        isChoosingBossReward: false
     };
 
     // Variáveis para controle de menu por teclado
@@ -159,7 +161,8 @@ window.onload = function() {
         nanobotRegeneration: false,
         invisibilityCloak: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.invisibilityCloak.cooldown, duration: 0, maxDuration: gameConfig.abilities.invisibilityCloak.duration },
         shieldOvercharge: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.shieldOvercharge.cooldown, duration: 0, maxDuration: gameConfig.abilities.shieldOvercharge.duration },
-        hullShield: { active: false, shield: 0, maxShield: 0 }
+        hullShield: { active: false, shield: 0, maxShield: 0 },
+        reinforcedPlating: { active: false, noDamageTimer: 0 }
     };
     let playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
 
@@ -249,6 +252,12 @@ window.onload = function() {
         { id: "reinforced_chassis", name: "Chassi Reforçado", description: "Fortalece a estrutura interna da nave, aumentando sua capacidade de suportar danos.", type: "health" },
         { id: "armor_plating", name: "Placas de Blindagem", description: "Adiciona camadas extras de blindagem ao casco, reduzindo o dano recebido de todas as fontes.", type: "health" },
         { id: "hull_shield", name: "Escudo de Fuselagem", description: "Converte parte da integridade estrutural da nave em um escudo de energia que se regenera fora de combate.", type: "health" }
+    ];
+    
+    const bossCardDatabase = [
+        { id: "foco_cirurgico", name: "Foco Cirúrgico", description: "+15% de Dano Base. +1.5% de Chance de Crítico. +5% de Dano Crítico." },
+        { id: "blindagem_reforcada", name: "Blindagem Reforçada", description: "+4 de Armadura. Após 15s sem sofrer dano, repara 5% da vida máxima a cada 10s." },
+        { id: "propulsores_aprimorados", name: "Propulsores Aprimorados", description: "+15% de Velocidade de Movimento. +10% de Cadência de Tiro." }
     ];
 
     // --- 3. DEFINIÇÕES DE FUNÇÕES ---
@@ -344,9 +353,8 @@ window.onload = function() {
         const x = Math.random() * canvas.width;
         const y = -radius;
         const speedMultiplier = 1 + (gameState.bossDefeats * 0.20);
-        // MODIFICAÇÃO: Trajetória diagonal para a esquerda e para baixo
-        const vx = -1 - Math.random() * 1.5; // Sempre move para a esquerda
-        const vy = (3 + Math.random()) * speedMultiplier; // Sempre move para baixo
+        const vx = -1 - Math.random() * 1.5; 
+        const vy = (3 + Math.random()) * speedMultiplier; 
         blueMeteors.push({ x: x, y: y, vx: vx, vy: vy, radius: radius, damage: 20 });
     }
 
@@ -377,11 +385,10 @@ window.onload = function() {
         b.bounced = 0;
         b.hitTargets = [];
 
-        // MODIFICAÇÃO: Definir o raio de colisão do projétil
         if (special.plasma && special.size) {
-            b.radius = special.size / 2; // O raio é metade do tamanho visual
+            b.radius = special.size / 2; 
         } else {
-            b.radius = 5; // Raio padrão para projéteis normais
+            b.radius = 5; 
         }
         
         bullets.push(b);
@@ -686,6 +693,17 @@ window.onload = function() {
             }
         });
 
+        if (playerEffects.reinforcedPlating.active) {
+            playerEffects.reinforcedPlating.noDamageTimer++;
+            // 15 segundos = 15 * 60 = 900 frames
+            if (playerEffects.reinforcedPlating.noDamageTimer >= 900) {
+                 // 10 segundos = 10 * 60 = 600 frames
+                 if ((playerEffects.reinforcedPlating.noDamageTimer - 900) % 600 === 0) {
+                     playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.05);
+                 }
+            }
+        }
+
         // Lógica passiva da Lâmina de Energia
         if (playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown <= 0) {
             playerEffects.energyBlade.duration = playerEffects.energyBlade.maxDuration;
@@ -928,7 +946,6 @@ window.onload = function() {
                 if (!b.active || b.hitTargets.includes(a)) continue;
                 if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius + b.radius) {
                     dealDamageToEnemy(a, b.damage);
-                    // Otimização: Gera partículas apenas se não for um tiro espectral
                     if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
                         createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
                     }
@@ -968,7 +985,7 @@ window.onload = function() {
             if (boss.y >= 150) {
                 boss.hasEntered = true;
                 boss.vx = boss.initialVx;
-                boss.shieldActive = false; // Desativa o escudo
+                boss.shieldActive = false;
             }
         } else {
             boss.x += boss.vx;
@@ -1000,10 +1017,11 @@ window.onload = function() {
             bossWarningBorder.classList.add('hidden');
             gameState.postBossMode = true;
             gameState.bossDefeats++;
-            playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.60);
+            playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.30);
             lastBlueMeteorWaveTime = Date.now();
             const asteroidsToSpawn = 7 + gameState.bossDefeats;
             for (let i = 0; i < asteroidsToSpawn; i++) createAsteroid("large");
+            showBossRewardScreen();
         }
     }
 
@@ -1622,6 +1640,10 @@ window.onload = function() {
             playerStats.health -= finalDamage;
         }
 
+        if (playerEffects.reinforcedPlating.active) {
+            playerEffects.reinforcedPlating.noDamageTimer = 0;
+        }
+
         damageFlashEffect.classList.remove('hidden');
         damageFlashEffect.classList.add('active');
         setTimeout(() => {
@@ -1646,7 +1668,7 @@ window.onload = function() {
         gameState.xp -= gameState.xpRequired; 
         gameState.xpRequired = Math.floor(5 * Math.pow(gameState.level, 1.5));
         gameState.rerollsAvailableThisLevel = 1;
-        playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + 20 + (playerStats.maxHealth * 0.10));
+        playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.25);
         updateUI();
         showLevelUpScreen();
     }
@@ -1666,12 +1688,14 @@ window.onload = function() {
     }
 
     function updateCardSelection() {
-        const cards = document.querySelectorAll('#cardContainer .card');
+        const container = gameState.isChoosingBossReward ? '#bossCardContainer' : '#cardContainer';
+        const cards = document.querySelectorAll(`${container} .card`);
         cards.forEach((card, index) => {
             const originalBorderColor = card.classList.contains('card-attack') ? '#ff4500' :
                                       card.classList.contains('card-defense') ? '#00BFFF' :
                                       card.classList.contains('card-attribute') ? '#9ACD32' :
-                                      card.classList.contains('card-health') ? '#32CD32' : '#444';
+                                      card.classList.contains('card-health') ? '#32CD32' : 
+                                      '#FFD700'; // Default para cartas de chefe
 
             if (index === selectedCardIndex) {
                 card.style.borderColor = '#00ff00';
@@ -1799,7 +1823,6 @@ window.onload = function() {
         passivePowerupsContainer.appendChild(iconContainer);
     }
 
-
     function applyCardEffect(card) {
         if (card.key && !playerEffects[card.id]?.active) {
             showNotification(`Nova Habilidade: <strong>${card.name}</strong> <br> Pressione '${card.key.toUpperCase()}' para usar!`);
@@ -1887,6 +1910,49 @@ window.onload = function() {
             case "hull_shield": playerEffects.hullShield.active = true; playerEffects.hullShield.maxShield = playerStats.maxHealth * 0.3; playerEffects.hullShield.shield = playerEffects.hullShield.maxShield; break;
         }
         updateUI();
+    }
+
+    function applyBossCardEffect(card) {
+        switch(card.id) {
+            case "foco_cirurgico":
+                playerStats.baseDamage *= 1.15;
+                playerStats.critChance += 0.015;
+                playerStats.critDamage += 0.05;
+                break;
+            case "blindagem_reforcada":
+                playerStats.armor += 4;
+                playerEffects.reinforcedPlating.active = true;
+                break;
+            case "propulsores_aprimorados":
+                playerStats.moveSpeed *= 1.15;
+                playerStats.fireRate *= 1.10;
+                break;
+        }
+        bossRewardScreen.classList.add("hidden");
+        gameState.isChoosingBossReward = false;
+        togglePause(false);
+    }
+    
+    function showBossRewardScreen() {
+        gameState.isChoosingBossReward = true;
+        togglePause(true, { fromBossReward: true });
+        bossRewardScreen.classList.remove("hidden");
+
+        const cardContainer = document.getElementById("bossCardContainer");
+        cardContainer.innerHTML = "";
+        
+        bossCardDatabase.forEach(card => {
+            const cardElement = document.createElement("div");
+            cardElement.className = "card";
+            cardElement.innerHTML = `<h3>${card.name}</h3><p>${card.description}</p><button>Selecionar</button>`;
+            cardContainer.appendChild(cardElement);
+            cardElement.querySelector("button").addEventListener("click", () => {
+                applyBossCardEffect(card);
+            });
+        });
+        
+        selectedCardIndex = 0;
+        updateCardSelection();
     }
 
     function gameOver() {
@@ -2029,7 +2095,6 @@ window.onload = function() {
             updateParticles();
             updateXPOrbs();
             
-            // --- CORREÇÃO DE BUG: Fase de Limpeza ---
             for (let i = asteroids.length - 1; i >= 0; i--) {
                 if (asteroids[i].isDead) {
                     handleAsteroidDestruction(asteroids[i], i);
@@ -2086,16 +2151,9 @@ window.onload = function() {
 
     // --- 4. INICIALIZAÇÃO E EVENT LISTENERS ---
     
-    // NOVO: Função para iniciar lutas de chefe para debug
-    /**
-     * Inicia uma luta de chefe específica para fins de teste.
-     * Limpa o campo de jogo e invoca o chefe solicitado.
-     * @param {string} bossType - O tipo de chefe a ser invocado ('terra' ou 'marte').
-     */
     function startBossFight(bossType) {
         if (gameState.isGameOver || gameState.bossActive) return;
 
-        // Limpa o campo de jogo
         asteroids.length = 0;
         bullets.forEach(b => returnToPool(b, 'bullets'));
         bullets.length = 0;
@@ -2103,7 +2161,6 @@ window.onload = function() {
         xpOrbs.forEach(orb => returnToPool(orb, 'xpOrbs'));
         xpOrbs.length = 0;
         
-        // Invoca o chefe
         if (bossType === 'terra') {
             spawnTerraBoss();
         } else if (bossType === 'marte') {
@@ -2112,12 +2169,12 @@ window.onload = function() {
     }
 
     function togglePause(shouldPause, options = {}) {
-        const { fromLevelUp = false, showPauseUI = true } = options;
+        const { fromLevelUp = false, showPauseUI = true, fromBossReward = false } = options;
 
         if (shouldPause && !gameState.paused) {
             gameState.paused = true;
             cancelAnimationFrame(animationFrameId);
-            if (fromLevelUp) {
+            if (fromLevelUp || fromBossReward) {
                 return;
             }
             if (showPauseUI) {
@@ -2126,7 +2183,7 @@ window.onload = function() {
                 updatePauseMenuSelection();
             }
         } else if (!shouldPause && gameState.paused) {
-            if (gameState.isLevelingUp) return;
+            if (gameState.isLevelingUp || gameState.isChoosingBossReward) return;
             
             gameState.paused = false;
             pauseMenu.classList.add('hidden');
@@ -2191,7 +2248,6 @@ window.onload = function() {
         }
     }
     
-    // CORREÇÃO: Adicionada a função que faltava para atualizar o visual dos botões
     function updateSoundPermissionSelection() {
         if (selectedSoundPermissionIndex === 0) { // Sim
             allowSoundBtn.style.transform = 'scale(1.1)';
@@ -2228,9 +2284,6 @@ window.onload = function() {
     });
 
     document.addEventListener("keydown", (e) => {
-        // --- CONTROLES DE MENU ---
-
-        // CORREÇÃO: Adicionar controle de teclado para o popup de som
         if (!soundPermissionPopup.classList.contains("hidden") && soundPermissionPopup.style.display === 'flex') {
             if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
                 selectedSoundPermissionIndex = 0;
@@ -2245,10 +2298,9 @@ window.onload = function() {
                     denySoundBtn.click();
                 }
             }
-            return; // Impede que outros manipuladores de teclas sejam acionados
+            return;
         }
 
-        // Tela de Introdução
         if (!introScreen.classList.contains("hidden")) {
             if (e.code === 'Space' || e.code === 'Enter') {
                 startGameFlow();
@@ -2256,7 +2308,6 @@ window.onload = function() {
             return;
         }
 
-        // Tela de Game Over
         if (!gameOverScreen.classList.contains("hidden")) {
             if (e.code === 'Enter' || e.code === 'Space') {
                 restartButton.click();
@@ -2264,15 +2315,14 @@ window.onload = function() {
             return;
         }
         
-        // Menu de Pausa
-        if (gameState.paused && !gameState.isLevelingUp && !cheatMenu.classList.contains("hidden")) {
+        if (gameState.paused && !gameState.isLevelingUp && !gameState.isChoosingBossReward && !cheatMenu.classList.contains("hidden")) {
              if (e.code === 'Escape') {
                  closeCheatMenu();
              }
              return;
         }
 
-        if (gameState.paused && !gameState.isLevelingUp) {
+        if (gameState.paused && !gameState.isLevelingUp && !gameState.isChoosingBossReward) {
             const buttons = pauseMenu.querySelectorAll('button');
             if (e.code === 'ArrowUp' || e.code === 'KeyW') {
                 selectedPauseMenuIndex = (selectedPauseMenuIndex - 1 + buttons.length) % buttons.length;
@@ -2288,9 +2338,9 @@ window.onload = function() {
             return;
         }
 
-        // Tela de Level Up
-        if (gameState.isLevelingUp) {
-            const cards = document.querySelectorAll('#cardContainer .card');
+        if (gameState.isLevelingUp || gameState.isChoosingBossReward) {
+            const container = gameState.isChoosingBossReward ? '#bossCardContainer' : '#cardContainer';
+            const cards = document.querySelectorAll(`${container} .card`);
             if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
                 selectedCardIndex = (selectedCardIndex - 1 + cards.length) % cards.length;
                 updateCardSelection();
@@ -2301,28 +2351,23 @@ window.onload = function() {
                 if (cards[selectedCardIndex]) {
                     cards[selectedCardIndex].querySelector('button').click();
                 }
-            } else if (e.code === 'Tab') {
-                e.preventDefault(); // Impede o comportamento padrão da tecla Tab
+            } else if (e.code === 'Tab' && !gameState.isChoosingBossReward) {
+                e.preventDefault(); 
                 rerollButton.click();
             }
             return;
         }
         
-        // --- CONTROLES DE JOGABILIDADE ---
-        
-        // Pausar jogo
         if (e.code === 'Escape' && !gameState.isGameOver) {
             e.preventDefault();
             togglePause(!gameState.paused);
         }
         
-        // Ignora outras teclas se estiver pausado
         if (gameState.paused) return;
 
         keys[e.code] = true;
         if (e.code === "Space") e.preventDefault();
         
-        // Códigos de trapaça
         if (!isNaN(e.key)) {
             clearTimeout(sequenceTimeout);
             keySequence.push(e.key);
@@ -2343,7 +2388,6 @@ window.onload = function() {
             }
         }
 
-        // Habilidades
         if (!gameState.isGameOver) {
             if (e.code === 'KeyK' && playerEffects.plasmaCannon.active && playerEffects.plasmaCannon.charges > 0 && playerEffects.plasmaCannon.cooldown <= 0) {
                 firePlasmaShot();
@@ -2353,7 +2397,6 @@ window.onload = function() {
                 }
                 updateUI();
             }
-            // A Lâmina de Energia agora é passiva, então a tecla J não faz mais nada.
             if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown <= 0) {
                 asteroids.forEach(a => {
                     if (Math.hypot(player.x - a.x, player.y - a.y) < 200) {
@@ -2376,7 +2419,7 @@ window.onload = function() {
             if (e.code === "KeyO" && playerEffects.shieldOvercharge.active && playerEffects.shieldOvercharge.cooldown <= 0) {
                 const healthCost = playerStats.maxHealth * gameConfig.abilities.shieldOvercharge.healthCost;
                 if(playerStats.health > healthCost) {
-                    playerStats.health -= healthCost; // Custo em vida
+                    playerStats.health -= healthCost; 
                     playerEffects.shieldOvercharge.duration = playerEffects.shieldOvercharge.maxDuration;
                     playerEffects.shieldOvercharge.cooldown = playerEffects.shieldOvercharge.maxCooldown * playerStats.cooldownReduction;
                 }
@@ -2451,4 +2494,3 @@ window.onload = function() {
     soundPermissionPopup.style.display = 'flex';
     updateSoundPermissionSelection();
 };
-
