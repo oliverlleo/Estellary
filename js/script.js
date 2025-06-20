@@ -71,7 +71,6 @@ window.onload = function() {
             size: 30.375, 
             bobbingSpeed: 400, // Velocidade da flutuação
             bobbingAmount: 2,   // Amplitude da flutuação
-            tiltAmount: 0.25   // Inclinação ao virar
         },
         // Configurações dos Asteroides
         asteroid: {
@@ -328,7 +327,8 @@ window.onload = function() {
             damage: config.damage,
             xpReward: config.xpReward,
             maxHealth: config.health,
-            isDead: false // Flag para a nova lógica de destruição
+            isDead: false, // Flag para a nova lógica de destruição
+            killedByPlasmaBullet: null
         };
 
         if (isFragment) {
@@ -346,6 +346,7 @@ window.onload = function() {
             asteroid.y = player.y + (Math.random() > 0.5 ? 250 : -250); 
         }
         asteroids.push(asteroid);
+        return asteroid;
     }
 
     function createBlueMeteor() {
@@ -379,7 +380,7 @@ window.onload = function() {
         b.vx = Math.cos(angle) * speed;
         b.vy = Math.sin(angle) * speed;
         b.damage = damage;
-        b.life = playerStats.projectileRange / speed;
+        b.life = special.plasma ? 360 : playerStats.projectileRange / speed; // 6 segundos de vida para plasma
         b.special = special;
         b.rotation = 0;
         b.bounced = 0;
@@ -515,20 +516,18 @@ window.onload = function() {
              isElite: false, homingDelay: 45, isDead: false
         };
 
+        const impulseAngle = Math.random() * Math.PI * 2;
+        const impulseForce = 10;
+        satellite.vx = Math.cos(impulseAngle) * impulseForce;
+        satellite.vy = Math.sin(impulseAngle) * impulseForce;
+
         if (isElite) {
             satellite.speed = 1.0;
             satellite.radius = 30;
             satellite.damage = 20 * 1.20;
             satellite.health = 30;
             satellite.isElite = true;
-            satellite.vx = 0;
-            satellite.vy = 0;
-        } else {
-            const impulseAngle = Math.random() * Math.PI * 2;
-            const impulseForce = 10;
-            satellite.vx = Math.cos(impulseAngle) * impulseForce;
-            satellite.vy = Math.sin(impulseAngle) * impulseForce;
-        }
+        } 
         satellites.push(satellite);
     }
 
@@ -946,18 +945,20 @@ window.onload = function() {
                 if (!b.active || b.hitTargets.includes(a)) continue;
                 if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius + b.radius) {
                     dealDamageToEnemy(a, b.damage);
-                    if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
-                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
-                    }
-                    if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
+                    b.hitTargets.push(a);
+
+                    if (b.special && b.special.plasma) {
+                        if (a.health <= 0) {
+                            a.killedByPlasmaBullet = b;
+                        }
+                    } else if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
                         createLightningBolt(b.x, b.y, a, playerEffects.chainLightning.bounces, playerStats.baseDamage * playerEffects.chainLightning.damage, [a]);
                     }
+                    
                     createParticles(b.x, b.y, 3, "#FFD700", 2);
-                    if (!b.special.spectral) {
+                    if (!b.special.spectral && !b.special.plasma) {
                         returnToPool(b, 'bullets');
                         bullets.splice(j, 1);
-                    } else {
-                         b.hitTargets.push(a);
                     }
                 }
             }
@@ -973,6 +974,40 @@ window.onload = function() {
         }
     }
 
+    function handleAsteroidDestruction(asteroid, index, killerBullet = null) {
+        let particleCount = 20, particleSize = 3, particleLife = 30;
+        if(asteroid.size === "medium") { particleCount = 40; particleSize = 4; particleLife = 40; }
+        if(asteroid.size === "large")  { particleCount = 60; particleSize = 5; particleLife = 50; }
+        createParticles(asteroid.x, asteroid.y, particleCount, "#A9A9A9", particleSize, particleLife);
+
+        let xpAmount = asteroid.xpReward;
+        if(Math.random() < 0.15 + playerStats.luck) {
+            xpAmount *= 2;
+        }
+        createXPOrb(asteroid.x, asteroid.y, xpAmount);
+        gameState.score += asteroid.xpReward;
+        updateScoreUI();
+
+        const fragments = [];
+        if (asteroid.size === "large") { 
+            fragments.push(createAsteroid("medium", asteroid.x, asteroid.y, true)); 
+            fragments.push(createAsteroid("medium", asteroid.x, asteroid.y, true)); 
+        } else if (asteroid.size === "medium") { 
+            for(let i=0; i<4; i++) fragments.push(createAsteroid("small", asteroid.x, asteroid.y, true)); 
+        }
+
+        if (killerBullet && killerBullet.special.plasma) {
+            fragments.forEach(frag => {
+                killerBullet.hitTargets.push(frag);
+            });
+        }
+        
+        asteroids.splice(index, 1);
+        if (playerEffects.battleFrenzy.active) { 
+            playerEffects.battleFrenzy.timer = playerEffects.battleFrenzy.maxTime; 
+        }
+    }
+    
     function updateBoss() {
         if (!boss) return;
         
@@ -1065,7 +1100,7 @@ window.onload = function() {
                 hit = true;
             }
             
-            if (hit && !b.special.spectral) {
+            if (hit && !b.special.spectral && !b.special.plasma) {
                 returnToPool(b, 'bullets');
                 bullets.splice(i, 1);
             }
@@ -1215,7 +1250,7 @@ window.onload = function() {
                     }
                 }
             });
-            if (hit && !b.special.spectral) {
+            if (hit && !b.special.spectral && !b.special.plasma) {
                 returnToPool(b, 'bullets');
                 bullets.splice(i, 1);
             }
@@ -1242,7 +1277,7 @@ window.onload = function() {
             
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
-                if (!b.active) continue;
+                if (!b.active || b.hitTargets.includes(s)) continue;
                 if (!player.invisible && Math.hypot(b.x - s.x, b.y - s.y) < s.radius + b.radius) {
                     dealDamageToEnemy(s, b.damage);
                     if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
@@ -1251,8 +1286,9 @@ window.onload = function() {
                      if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
                         createLightningBolt(b.x, b.y, s, playerEffects.chainLightning.bounces, playerStats.baseDamage * playerEffects.chainLightning.damage, [s]);
                     }
+                    b.hitTargets.push(s);
                     createParticles(b.x, b.y, 2, "#ffff00", 1.5);
-                    if(!b.special.spectral) {
+                    if(!b.special.spectral && !b.special.plasma) {
                         returnToPool(b, 'bullets');
                         bullets.splice(j, 1);
                     }
@@ -1307,29 +1343,6 @@ window.onload = function() {
         }
     }
 
-    function handleAsteroidDestruction(asteroid, index) {
-        // MELHORIA: Partículas mais impactantes na destruição
-        let particleCount = 20, particleSize = 3, particleLife = 30;
-        if(asteroid.size === "medium") { particleCount = 40; particleSize = 4; particleLife = 40; }
-        if(asteroid.size === "large")  { particleCount = 60; particleSize = 5; particleLife = 50; }
-        createParticles(asteroid.x, asteroid.y, particleCount, "#A9A9A9", particleSize, particleLife);
-
-        let xpAmount = asteroid.xpReward;
-        if(Math.random() < 0.15 + playerStats.luck) {
-            xpAmount *= 2;
-        }
-        createXPOrb(asteroid.x, asteroid.y, xpAmount);
-        gameState.score += asteroid.xpReward;
-        updateScoreUI();
-        if (asteroid.size === "large") { createAsteroid("medium", asteroid.x, asteroid.y, true); createAsteroid("medium", asteroid.x, asteroid.y, true); }
-        else if (asteroid.size === "medium") { for(let i=0; i<4; i++) createAsteroid("small", asteroid.x, asteroid.y, true); }
-        asteroids.splice(index, 1);
-        if (playerEffects.battleFrenzy.active) { 
-            playerEffects.battleFrenzy.timer = playerEffects.battleFrenzy.maxTime; 
-        }
-    }
-
-    // Refatorado para usar Object Pooling
     function updateParticles() {
         for (let i = particles.length - 1; i >= 0; i--) {
             const p = particles[i];
@@ -1341,7 +1354,6 @@ window.onload = function() {
         }
     }
     
-    // Refatorado para usar Object Pooling
     function updateXPOrbs() {
         for (let i = xpOrbs.length - 1; i >= 0; i--) {
             const orb = xpOrbs[i];
@@ -1366,22 +1378,14 @@ window.onload = function() {
         }
     }
 
-    // MELHORIA: Animação de flutuação e inclinação da nave
     function drawPlayer() {
         ctx.save();
         
-        // Calcula a posição Y com a flutuação
         const bobbingY = player.y + Math.sin(Date.now() / gameConfig.player.bobbingSpeed + player.bobbingPhase) * gameConfig.player.bobbingAmount;
         
         ctx.translate(player.x, bobbingY);
 
-        // Calcula a inclinação
-        let angleDiff = player.targetAngle - player.angle;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        const tilt = Math.max(-1, Math.min(1, angleDiff * 5)) * gameConfig.player.tiltAmount;
-
-        ctx.rotate(player.angle + tilt);
+        ctx.rotate(player.angle);
         
         if (player.invisible) {
             ctx.globalAlpha = 0.4;
@@ -1390,7 +1394,6 @@ window.onload = function() {
         ctx.drawImage(playerShipImage, -player.size, -player.size, player.size * 2, player.size * 2);
         ctx.restore();
 
-        // Efeitos de escudo continuam como antes
         if (playerEffects.reactiveShield.active) {
             if (playerEffects.reactiveShield.duration > 0) {
                 ctx.save();
@@ -1444,8 +1447,8 @@ window.onload = function() {
                 ctx.rotate(b.rotation);
                 ctx.drawImage(plasmaShotImage, -size / 2, -size / 2, size, size);
             } else {
-                const angle = Math.atan2(b.vy, b.vx); // CORREÇÃO: Calcula o ângulo do projétil
-                ctx.rotate(angle); // Roda o contexto
+                const angle = Math.atan2(b.vy, b.vx); 
+                ctx.rotate(angle); 
                 ctx.drawImage(projectileImage, -5, -5, 10, 10);
             }
             
@@ -2097,7 +2100,7 @@ window.onload = function() {
             
             for (let i = asteroids.length - 1; i >= 0; i--) {
                 if (asteroids[i].isDead) {
-                    handleAsteroidDestruction(asteroids[i], i);
+                    handleAsteroidDestruction(asteroids[i], i, asteroids[i].killedByPlasmaBullet);
                 }
             }
             for (let i = satellites.length - 1; i >= 0; i--) {
