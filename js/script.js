@@ -82,12 +82,12 @@ window.onload = function() {
         // Configurações dos Chefes
         boss: {
             terra: {
-                health: 400,
+                health: 500,
                 damage: 100,
                 speed: 0.7
             },
             mars: {
-                health: 500, 
+                health: 800 * 0.65, 
                 damage: 120,
                 speed: 0.4 * 1.2, 
                 turretDamage: 15 * 1.3,
@@ -122,12 +122,13 @@ window.onload = function() {
         paused: false, isLevelingUp: false, level: 1, xp: 0, xpRequired: 5,
         rerollsAvailableThisLevel: 1, sector: 1, time: 0, score: 0, bossActive: false,
         postBossMode: false, bossDefeats: 0, isGameOver: false,
-        doublePickActive: false // CORREÇÃO BUG SORTE
+        doublePickActive: false 
     };
 
     // Variáveis para controle de menu por teclado
     let selectedCardIndex = 0;
     let selectedPauseMenuIndex = 0;
+    let selectedSoundPermissionIndex = 0; // Para o popup de som
 
     // Os stats do jogador agora são inicializados a partir do gameConfig
     const initialPlayerStats = {
@@ -924,7 +925,7 @@ window.onload = function() {
                     createParticles(b.x, b.y, 3, "#FFD700", 2);
                     if (!b.special.spectral) {
                         returnToPool(b, 'bullets');
-                        bullets.splice(j, 1);
+                        bullets.splice(i, 1);
                     } else {
                          b.hitTargets.push(a);
                     }
@@ -936,7 +937,7 @@ window.onload = function() {
                 if (Math.hypot(m.x - a.x, m.y - a.y) < a.radius) {
                     dealDamageToEnemy(a, m.damage);
                     createParticles(m.x, m.y, 10, "#FF4500", 2.5);
-                    missiles.splice(j, 1);
+                    missiles.splice(i, 1);
                 }
             }
         }
@@ -2155,6 +2156,21 @@ window.onload = function() {
             initGame();
         }
     }
+    
+    // CORREÇÃO: Adicionada a função que faltava para atualizar o visual dos botões
+    function updateSoundPermissionSelection() {
+        if (selectedSoundPermissionIndex === 0) { // Sim
+            allowSoundBtn.style.transform = 'scale(1.1)';
+            allowSoundBtn.style.boxShadow = '0 0 15px #00ff00';
+            denySoundBtn.style.transform = '';
+            denySoundBtn.style.boxShadow = '';
+        } else { // Não
+            allowSoundBtn.style.transform = '';
+            allowSoundBtn.style.boxShadow = '';
+            denySoundBtn.style.transform = 'scale(1.1)';
+            denySoundBtn.style.boxShadow = '0 0 15px #ff4500';
+        }
+    }
 
     playButton.addEventListener("click", startGameFlow);
     restartButton.addEventListener('click', () => {
@@ -2179,6 +2195,24 @@ window.onload = function() {
 
     document.addEventListener("keydown", (e) => {
         // --- CONTROLES DE MENU ---
+
+        // CORREÇÃO: Adicionar controle de teclado para o popup de som
+        if (!soundPermissionPopup.classList.contains("hidden") && soundPermissionPopup.style.display === 'flex') {
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+                selectedSoundPermissionIndex = 0;
+                updateSoundPermissionSelection();
+            } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+                selectedSoundPermissionIndex = 1;
+                updateSoundPermissionSelection();
+            } else if (e.code === 'Enter' || e.code === 'Space') {
+                if (selectedSoundPermissionIndex === 0) {
+                    allowSoundBtn.click();
+                } else {
+                    denySoundBtn.click();
+                }
+            }
+            return; // Impede que outros manipuladores de teclas sejam acionados
+        }
 
         // Tela de Introdução
         if (!introScreen.classList.contains("hidden")) {
@@ -2374,4 +2408,5 @@ window.onload = function() {
     });
     
     soundPermissionPopup.style.display = 'flex';
+    updateSoundPermissionSelection();
 };
