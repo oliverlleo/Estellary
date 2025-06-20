@@ -55,19 +55,19 @@ window.onload = function() {
         // Configurações do Jogador
         player: {
             maxHealth: 100,
-            baseDamage: 12, // ATUALIZADO
+            baseDamage: 12, 
             armor: 0,
             fireRate: 2.3, 
             moveSpeed: 1.5,
             critChance: 0.05,
             critDamage: 1.5, // Fator de dano para acertos críticos
-            projectileSpeed: 5.8, 
-            projectileRange: 1100, 
+            projectileSpeed: 5.5, 
+            projectileRange: 1000, 
             xpCollectionRadius: 100,
             cooldownReduction: 1, // Fator de redução de recarga
             rotationSpeed: 0.13,
             luck: 0.1, // Chance de eventos positivos
-            size: 15,
+            size: 30.375, // RESTAURADO
             bobbingSpeed: 400, // Velocidade da flutuação
             bobbingAmount: 2,   // Amplitude da flutuação
             tiltAmount: 0.25   // Inclinação ao virar
@@ -87,19 +87,19 @@ window.onload = function() {
                 speed: 0.7
             },
             mars: {
-                health: 800 * 0.65, // Vida ajustada para balanceamento
+                health: 800 * 0.65, 
                 damage: 120,
-                speed: 0.4 * 1.2, // Velocidade ajustada para balanceamento
-                turretDamage: 15 * 1.3, // Dano da torreta ajustado para balanceamento
-                laserDamagePerFrame: 0.5 * 1.3, // Dano do laser ajustado para balanceamento
-                heatAuraDamage: 0.2, // Dano contínuo da aura de calor
+                speed: 0.4 * 1.2, 
+                turretDamage: 15 * 1.3,
+                laserDamagePerFrame: 0.5 * 1.3,
+                heatAuraDamage: 0.2
             }
         },
         // Configurações de Habilidades
         abilities: {
-            plasmaCannon:     { cooldown: 360, damageMultiplier: 1.0 }, // ATUALIZADO
-            energyBlade:      { cooldown: 900, duration: 600 }, 
-            staticPulse:      { cooldown: 300, damageMultiplier: 0.5 }, // ATUALIZADO
+            plasmaCannon:     { cooldown: 360, damageMultiplier: 1.0 }, 
+            energyBlade:      { cooldown: 900, duration: 600, damage: 0.5, bossDamage: 0.1 },
+            staticPulse:      { cooldown: 300, damageMultiplier: 0.5 }, 
             emergencyTeleport:{ cooldown: 180, distance: 150 },
             invisibilityCloak:{ cooldown: 600, duration: 300 },
             shieldOvercharge: { cooldown: 600, duration: 180, healthCost: 0.2 },
@@ -147,7 +147,7 @@ window.onload = function() {
         orbitalDrones: { active: false, drones: [] },
         energyBlade: { active: false, duration: 0, cooldown: 0, maxCooldown: gameConfig.abilities.energyBlade.cooldown, maxDuration: gameConfig.abilities.energyBlade.duration, angle: 0, sizeMultiplier: 1 }, 
         ricochetShot: false,
-        chainLightning: { active: false, chance: 0.30, bounces: 2, damage: 0.35 }, // ATUALIZADO
+        chainLightning: { active: false, chance: 0.30, bounces: 2, damage: 0.35 }, 
         battleFrenzy: { active: false, timer: 0, maxTime: 300 },
         staticPulse: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.staticPulse.cooldown },
         spectralCannon: false,
@@ -251,6 +251,23 @@ window.onload = function() {
 
     // --- 3. DEFINIÇÕES DE FUNÇÕES ---
 
+    // --- CORREÇÃO DE BUG: Função centralizada para lidar com dano ---
+    function dealDamageToEnemy(enemy, damage) {
+        if (enemy.health <= 0) return; // Impede gatilhos de morte múltiplos
+
+        let finalDamage = damage;
+        // Aplica a redução de dano se o inimigo tiver essa propriedade (ex: chefes)
+        if (enemy.damageReduction) {
+            finalDamage *= (1 - enemy.damageReduction);
+        }
+
+        enemy.health -= finalDamage;
+
+        if (enemy.health <= 0) {
+            enemy.isDead = true; // Marca para remoção segura no final do ciclo
+        }
+    }
+
     // --- MELHORIA: FUNÇÕES DE OBJECT POOLING ---
     // Funções para gerenciar a reutilização de objetos, melhorando a performance.
     function getFromPool(poolName) {
@@ -299,7 +316,8 @@ window.onload = function() {
             health: config.health,
             damage: config.damage,
             xpReward: config.xpReward,
-            maxHealth: config.health
+            maxHealth: config.health,
+            isDead: false // Flag para a nova lógica de destruição
         };
 
         if (isFragment) {
@@ -453,7 +471,7 @@ window.onload = function() {
             path: [{x: x, y: y}, {x: firstTarget.x, y: firstTarget.y}],
             life: 15 
         });
-        if(firstTarget.health > 0) firstTarget.health -= damage;
+        dealDamageToEnemy(firstTarget, damage);
     }
 
     function spawnNextBoss() {
@@ -472,24 +490,27 @@ window.onload = function() {
         const spawnY = y + Math.sin(spawnAngle) * (boss.radius + 10);
         const isElite = Math.random() < 0.20;
 
+        const satellite = {
+             x: spawnX, y: spawnY,
+             speed: 1.8, radius: 20, damage: 20, health: 10,
+             isElite: false, homingDelay: 45, isDead: false
+        };
+
         if (isElite) {
-            satellites.push({
-                x: spawnX, y: spawnY, vx: 0, vy: 0,
-                speed: 1.0, radius: 30, damage: 20 * 1.20,
-                health: 30, isElite: true
-            });
+            satellite.speed = 1.0;
+            satellite.radius = 30;
+            satellite.damage = 20 * 1.20;
+            satellite.health = 30;
+            satellite.isElite = true;
+            satellite.vx = 0;
+            satellite.vy = 0;
         } else {
             const impulseAngle = Math.random() * Math.PI * 2;
             const impulseForce = 10;
-            satellites.push({
-                x: spawnX, y: spawnY,
-                vx: Math.cos(impulseAngle) * impulseForce,
-                vy: Math.sin(impulseAngle) * impulseForce,
-                speed: 1.8,
-                radius: 20, damage: 20, health: 10,
-                isElite: false, homingDelay: 45
-            });
+            satellite.vx = Math.cos(impulseAngle) * impulseForce;
+            satellite.vy = Math.sin(impulseAngle) * impulseForce;
         }
+        satellites.push(satellite);
     }
 
     function spawnTerraBoss() {
@@ -514,6 +535,7 @@ window.onload = function() {
             health: gameConfig.boss.terra.health * healthMultiplier,
             maxHealth: gameConfig.boss.terra.health * healthMultiplier,
             damage: gameConfig.boss.terra.damage,
+            damageReduction: 0, // Removido
             shieldActive: true,
             shieldHit: 0,
             moon: { angle: 0, distance: 120, radius: 16 }
@@ -543,6 +565,7 @@ window.onload = function() {
             health: marsHealth,
             maxHealth: marsHealth,
             damage: gameConfig.boss.mars.damage,
+            damageReduction: 0, // Removido
             shieldActive: true,
             shieldHit: 0,
             turrets: [
@@ -687,10 +710,10 @@ window.onload = function() {
         const angle = playerEffects.energyBlade.angle;
     
         if (!player.invisible) {
-            // Iterar de trás para a frente para poder remover itens com segurança
-            for (let i = asteroids.length - 1; i >= 0; i--) {
-                const enemy = asteroids[i];
-                const p1x = player.x + Math.cos(angle) * bladeRadius;
+            const allEnemies = [...asteroids, ...satellites];
+            if(boss) allEnemies.push(boss);
+            allEnemies.forEach(enemy => {
+                 const p1x = player.x + Math.cos(angle) * bladeRadius;
                 const p1y = player.y + Math.sin(angle) * bladeRadius;
                 const p2x = player.x - Math.cos(angle) * bladeRadius;
                 const p2y = player.y - Math.sin(angle) * bladeRadius;
@@ -699,13 +722,10 @@ window.onload = function() {
                 const dist2 = Math.hypot(p2x - enemy.x, p2y - enemy.y);
     
                 if (dist1 < enemy.radius || dist2 < enemy.radius) {
-                    enemy.health -= 0.5;
-                    // BUG FIX: Checar se o inimigo foi destruído e removê-lo
-                    if (enemy.health <= 0) {
-                        handleAsteroidDestruction(enemy, i);
-                    }
+                    const damage = enemy.type ? gameConfig.abilities.energyBlade.bossDamage : gameConfig.abilities.energyBlade.damage;
+                    dealDamageToEnemy(enemy, damage);
                 }
-            }
+            });
         }
     }
 
@@ -769,7 +789,7 @@ window.onload = function() {
                 m.vy *= 0.98;
                 m.homingDelay--;
             } else {
-                if (!m.target || m.target.health <= 0) {
+                if (!m.target || m.target.isDead) {
                     m.target = [...asteroids, ...satellites].filter(e => e.health > 0)
                                  .reduce((closest, ast) => (Math.hypot(m.x - ast.x, m.y - ast.y) < Math.hypot(m.x - (closest?.x || Infinity), m.y - (closest?.y || Infinity)) ? ast : closest), null);
                 }
@@ -816,7 +836,7 @@ window.onload = function() {
                 });
 
                 if (nextTarget) {
-                    if(nextTarget.health > 0) nextTarget.health -= bolt.damage;
+                    dealDamageToEnemy(nextTarget, bolt.damage);
                     bolt.hitTargets.push(nextTarget);
                     bolt.target = nextTarget;
                     bolt.bouncesLeft--;
@@ -853,7 +873,9 @@ window.onload = function() {
     }
 
     function updateAsteroids() {
-        if (asteroids.length === 0 && !gameState.bossActive && boss === null) spawnNextBoss();
+        if (asteroids.length === 0 && !gameState.bossActive && boss === null) {
+            spawnNextBoss();
+        }
         for (let i = asteroids.length - 1; i >= 0; i--) {
             const a = asteroids[i];
             if (a.isFragment) {
@@ -892,27 +914,28 @@ window.onload = function() {
 
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const b = bullets[j];
-                if (!b.active) continue;
+                if (!b.active || b.hitTargets.includes(a)) continue;
                 if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius) {
-                    a.health -= b.damage;
+                    dealDamageToEnemy(a, b.damage);
                     if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
-                        createLightningBolt(b.x, b.y, a, playerEffects.chainLightning.bounces, b.damage * playerEffects.chainLightning.damage, [a]);
+                        createLightningBolt(b.x, b.y, a, playerEffects.chainLightning.bounces, playerStats.baseDamage * playerEffects.chainLightning.damage, [a]);
                     }
                     createParticles(b.x, b.y, 3, "#FFD700", 2);
                     if (!b.special.spectral) {
                         returnToPool(b, 'bullets');
                         bullets.splice(j, 1);
+                    } else {
+                         b.hitTargets.push(a);
                     }
-                    if (a.health <= 0) { handleAsteroidDestruction(a, i); break; }
                 }
             }
-            if (i >= asteroids.length || asteroids[i].health <= 0) continue;
+
             for (let j = missiles.length - 1; j >= 0; j--) {
-                if (Math.hypot(missiles[j].x - a.x, missiles[j].y - a.y) < a.radius) {
-                    a.health -= missiles[j].damage;
-                    createParticles(missiles[j].x, missiles[j].y, 10, "#FF4500", 2.5);
+                const m = missiles[j];
+                if (Math.hypot(m.x - a.x, m.y - a.y) < a.radius) {
+                    dealDamageToEnemy(a, m.damage);
+                    createParticles(m.x, m.y, 10, "#FF4500", 2.5);
                     missiles.splice(j, 1);
-                    if (a.health <= 0) { handleAsteroidDestruction(a, i); break; }
                 }
             }
         }
@@ -982,7 +1005,7 @@ window.onload = function() {
 
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
-            if (!b.active) continue;
+            if (!b.active || b.hitTargets.includes(boss)) continue;
             let hit = false;
             let hitBossBody = !player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius;
 
@@ -992,7 +1015,8 @@ window.onload = function() {
                     createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
                     hit = true;
                 } else {
-                    boss.health -= b.damage;
+                    dealDamageToEnemy(boss, b.damage);
+                    b.hitTargets.push(boss); // CORREÇÃO BUG
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
                     hit = true;
                 }
@@ -1107,7 +1131,7 @@ window.onload = function() {
             const b = bullets[i];
             if (!b.active) continue;
             let hit = false;
-            let hitBossBody = !player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius;
+            let hitBossBody = !player.invisible && !b.hitTargets.includes(boss) && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius;
 
             if (hitBossBody) {
                 if (boss.shieldActive) {
@@ -1115,24 +1139,27 @@ window.onload = function() {
                     createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
                     hit = true;
                 } else {
-                    boss.health -= b.damage;
+                    dealDamageToEnemy(boss, b.damage);
+                    b.hitTargets.push(boss); // CORREÇÃO BUG
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
                     hit = true;
                 }
             }
 
             boss.turrets.forEach(turret => {
-                if (turret.health > 0 && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius) {
-                    turret.health -= b.damage;
+                if (turret.health > 0 && !b.hitTargets.includes(turret) && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius) {
+                    dealDamageToEnemy(turret, b.damage);
+                    b.hitTargets.push(turret); // CORREÇÃO BUG
                     hit = true;
                     if(turret.health <= 0) createParticles(turret.x, turret.y, 50, "#FFA500", 5, 40);
                     else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
                 }
             });
             boss.laserShips.forEach(ship => {
-                if (ship.state !== 'idle' && ship.health > 0) {
+                if (ship.state !== 'idle' && ship.health > 0 && !b.hitTargets.includes(ship)) {
                     if (Math.hypot(b.x - ship.currentX, b.y - ship.y) < 30) {
-                         ship.health -= b.damage;
+                        dealDamageToEnemy(ship, b.damage);
+                        b.hitTargets.push(ship); // CORREÇÃO BUG
                          hit = true;
                          if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500", 5, 40);
                          else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
@@ -1168,20 +1195,14 @@ window.onload = function() {
                 const b = bullets[j];
                 if (!b.active) continue;
                 if (!player.invisible && Math.hypot(b.x - s.x, b.y - s.y) < s.radius) {
-                    s.health -= b.damage;
+                    dealDamageToEnemy(s, b.damage);
                      if (playerEffects.chainLightning.active && Math.random() < playerEffects.chainLightning.chance) {
-                        createLightningBolt(b.x, b.y, s, playerEffects.chainLightning.bounces, b.damage * playerEffects.chainLightning.damage, [s]);
+                        createLightningBolt(b.x, b.y, s, playerEffects.chainLightning.bounces, playerStats.baseDamage * playerEffects.chainLightning.damage, [s]);
                     }
                     createParticles(b.x, b.y, 2, "#ffff00", 1.5);
                     if(!b.special.spectral) {
                         returnToPool(b, 'bullets');
-                        bullets.splice(i, 1);
-                    }
-
-                    if (s.health <= 0) {
-                        createParticles(s.x, s.y, 15, "#ffa500", 2.5, 30);
-                        satellites.splice(i, 1);
-                        break; 
+                        bullets.splice(j, 1);
                     }
                 }
             }
@@ -1202,8 +1223,7 @@ window.onload = function() {
                         player.vy += Math.sin(angleOfCollision) * pushForce;
                         createParticles(s.x, s.y, 10, "#ffff00", 2.5);
                     }
-                    satellites.splice(i, 1);
-                    continue; 
+                    dealDamageToEnemy(s, 9999); // Destroy satellite on collision
                 }
             }
         }
@@ -1967,6 +1987,19 @@ window.onload = function() {
             updateParticles();
             updateXPOrbs();
             
+            // --- CORREÇÃO DE BUG: Fase de Limpeza ---
+            for (let i = asteroids.length - 1; i >= 0; i--) {
+                if (asteroids[i].isDead) {
+                    handleAsteroidDestruction(asteroids[i], i);
+                }
+            }
+            for (let i = satellites.length - 1; i >= 0; i--) {
+                if (satellites[i].isDead) {
+                    createParticles(satellites[i].x, satellites[i].y, 15, "#ffa500", 2.5, 30);
+                    satellites.splice(i, 1);
+                }
+            }
+
             updateUI();
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2037,14 +2070,17 @@ window.onload = function() {
     }
 
     function togglePause(shouldPause, options = {}) {
-        const { fromLevelUp = false, fromBlur = false } = options;
+        const { fromLevelUp = false, showPauseUI = true } = options;
 
         if (shouldPause && !gameState.paused) {
             gameState.paused = true;
             cancelAnimationFrame(animationFrameId);
-            if (!fromLevelUp) {
+            if (fromLevelUp) {
+                return;
+            }
+            if (showPauseUI) {
                 pauseMenu.classList.remove('hidden');
-                selectedPauseMenuIndex = 0; // Reset index
+                selectedPauseMenuIndex = 0;
                 updatePauseMenuSelection();
             }
         } else if (!shouldPause && gameState.paused) {
@@ -2052,6 +2088,7 @@ window.onload = function() {
             
             gameState.paused = false;
             pauseMenu.classList.add('hidden');
+            cheatMenu.classList.add('hidden');
             gameLoop();
         }
     }
@@ -2153,6 +2190,13 @@ window.onload = function() {
         }
         
         // Menu de Pausa
+        if (gameState.paused && !gameState.isLevelingUp && !cheatMenu.classList.contains("hidden")) {
+             if (e.code === 'Escape') {
+                 closeCheatMenu();
+             }
+             return;
+        }
+
         if (gameState.paused && !gameState.isLevelingUp) {
             const buttons = pauseMenu.querySelectorAll('button');
             if (e.code === 'ArrowUp' || e.code === 'KeyW') {
@@ -2233,7 +2277,11 @@ window.onload = function() {
             }
             // A Lâmina de Energia agora é passiva, então a tecla J não faz mais nada.
             if (e.code === "KeyU" && playerEffects.staticPulse.active && playerEffects.staticPulse.cooldown <= 0) {
-                for (let a of asteroids) { if(Math.hypot(player.x - a.x, player.y - a.y) < 200) a.health -= playerStats.baseDamage * gameConfig.abilities.staticPulse.damageMultiplier; }
+                asteroids.forEach(a => {
+                    if (Math.hypot(player.x - a.x, player.y - a.y) < 200) {
+                        dealDamageToEnemy(a, playerStats.baseDamage * gameConfig.abilities.staticPulse.damageMultiplier);
+                    }
+                });
                 createParticles(player.x, player.y, 50, "#FFFF00", 3);
                 playerEffects.staticPulse.cooldown = playerEffects.staticPulse.maxCooldown * playerStats.cooldownReduction;
             }
@@ -2264,10 +2312,10 @@ window.onload = function() {
 
     function openCheatMenu() {
         if (gameState.paused) return;
-        togglePause(true);
-        pauseMenu.classList.add('hidden');
-
-        cheatPowerupList.innerHTML = ''; // Limpa o conteúdo
+        togglePause(true, { showPauseUI: false }); // ATUALIZADO
+        cheatMenu.classList.remove('hidden');
+        
+        cheatPowerupList.innerHTML = '';
         
         cardDatabase.forEach(card => {
             const btn = document.createElement('button');
@@ -2278,8 +2326,7 @@ window.onload = function() {
             };
             cheatPowerupList.appendChild(btn);
         });
-
-        // CORREÇÃO: Adiciona os botões de chefe DENTRO do menu de cheat
+        
         const separator = document.createElement('div');
         separator.className = 'cheat-section-title';
         separator.textContent = '--- Teste de Chefes ---';
@@ -2302,8 +2349,6 @@ window.onload = function() {
             closeCheatMenu();
         };
         cheatPowerupList.appendChild(marsBtn);
-
-        cheatMenu.classList.remove('hidden');
     }
 
     function closeCheatMenu() {
@@ -2317,7 +2362,7 @@ window.onload = function() {
     
     window.addEventListener('blur', () => {
         if (!gameState.isGameOver) {
-            togglePause(true, { fromBlur: true });
+            togglePause(true);
         }
     });
     
