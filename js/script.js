@@ -76,7 +76,7 @@ window.onload = function() {
         asteroid: {
             small:  { radius: 15, health: 10,  damage: 15, xpReward: 1 },
             medium: { radius: 30, health: 40,  damage: 30, xpReward: 5 },
-            large:  { radius: 50, health: 80,  damage: 55, xpReward: 7 }, 
+            large:  { radius: 50, health: 80,  damage: 70, xpReward: 7 }, 
             baseSpeed: 2
         },
         // Configurações dos Chefes
@@ -98,7 +98,7 @@ window.onload = function() {
         // Configurações de Habilidades
         abilities: {
             plasmaCannon:     { cooldown: 360, damageMultiplier: 1.0 }, 
-            energyBlade:      { cooldown: 900, duration: 600, damage: 0.5, bossDamage: 0.1 },
+            energyBlade:      { cooldown: 900, duration: 600, damage: 0.5 }, 
             staticPulse:      { cooldown: 300, damageMultiplier: 0.5 }, 
             emergencyTeleport:{ cooldown: 180, distance: 150 },
             invisibilityCloak:{ cooldown: 600, duration: 300 },
@@ -128,7 +128,7 @@ window.onload = function() {
     // Variáveis para controle de menu por teclado
     let selectedCardIndex = 0;
     let selectedPauseMenuIndex = 0;
-    let selectedSoundPermissionIndex = 0; // Para o popup de som
+    let selectedSoundPermissionIndex = 0;
 
     // Os stats do jogador agora são inicializados a partir do gameConfig
     const initialPlayerStats = {
@@ -537,7 +537,7 @@ window.onload = function() {
             health: gameConfig.boss.terra.health * healthMultiplier,
             maxHealth: gameConfig.boss.terra.health * healthMultiplier,
             damage: gameConfig.boss.terra.damage,
-            damageReduction: 0, // REVERTIDO
+            damageReduction: 0, 
             shieldActive: true,
             shieldHit: 0,
             moon: { angle: 0, distance: 120, radius: 16 }
@@ -567,7 +567,7 @@ window.onload = function() {
             health: marsHealth,
             maxHealth: marsHealth,
             damage: gameConfig.boss.mars.damage,
-            damageReduction: 0, // REVERTIDO
+            damageReduction: 0, 
             shieldActive: true,
             shieldHit: 0,
             turrets: [
@@ -676,7 +676,7 @@ window.onload = function() {
             }
         });
 
-        // ATUALIZADO: Lógica passiva da Lâmina de Energia
+        // Lógica passiva da Lâmina de Energia
         if (playerEffects.energyBlade.active && playerEffects.energyBlade.cooldown <= 0) {
             playerEffects.energyBlade.duration = playerEffects.energyBlade.maxDuration;
             playerEffects.energyBlade.cooldown = playerEffects.energyBlade.maxCooldown * playerStats.cooldownReduction;
@@ -724,8 +724,7 @@ window.onload = function() {
                 const dist2 = Math.hypot(p2x - enemy.x, p2y - enemy.y);
     
                 if (dist1 < enemy.radius || dist2 < enemy.radius) {
-                    const damage = enemy.type ? gameConfig.abilities.energyBlade.bossDamage : gameConfig.abilities.energyBlade.damage;
-                    dealDamageToEnemy(enemy, damage);
+                    dealDamageToEnemy(enemy, gameConfig.abilities.energyBlade.damage);
                 }
             });
         }
@@ -925,7 +924,7 @@ window.onload = function() {
                     createParticles(b.x, b.y, 3, "#FFD700", 2);
                     if (!b.special.spectral) {
                         returnToPool(b, 'bullets');
-                        bullets.splice(i, 1);
+                        bullets.splice(j, 1);
                     } else {
                          b.hitTargets.push(a);
                     }
@@ -937,7 +936,7 @@ window.onload = function() {
                 if (Math.hypot(m.x - a.x, m.y - a.y) < a.radius) {
                     dealDamageToEnemy(a, m.damage);
                     createParticles(m.x, m.y, 10, "#FF4500", 2.5);
-                    missiles.splice(i, 1);
+                    missiles.splice(j, 1);
                 }
             }
         }
@@ -1394,6 +1393,8 @@ window.onload = function() {
                 ctx.rotate(b.rotation);
                 ctx.drawImage(plasmaShotImage, -size / 2, -size / 2, size, size);
             } else {
+                const angle = Math.atan2(b.vy, b.vx); // CORREÇÃO: Calcula o ângulo do projétil
+                ctx.rotate(angle); // Roda o contexto
                 ctx.drawImage(projectileImage, -5, -5, 10, 10);
             }
             
@@ -2267,6 +2268,9 @@ window.onload = function() {
                 if (cards[selectedCardIndex]) {
                     cards[selectedCardIndex].querySelector('button').click();
                 }
+            } else if (e.code === 'Tab') {
+                e.preventDefault(); // Impede o comportamento padrão da tecla Tab
+                rerollButton.click();
             }
             return;
         }
@@ -2350,6 +2354,11 @@ window.onload = function() {
     document.addEventListener("keyup", (e) => { keys[e.code] = false; if (e.code === "Space") e.preventDefault(); });
     document.addEventListener("mousedown", () => { if(!gameState.paused) mouseDown = true; });
     document.addEventListener("mouseup", () => { mouseDown = false; });
+
+    document.addEventListener('mousemove', (e) => {
+        mousePos.x = e.clientX;
+        mousePos.y = e.clientY;
+    });
 
     function openCheatMenu() {
         if (gameState.paused) return;
