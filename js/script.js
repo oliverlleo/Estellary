@@ -48,6 +48,8 @@ window.onload = function() {
     const damageFlashEffect = document.getElementById("damageFlashEffect");
     const notificationContainer = document.getElementById("notificationContainer");
     const bossRewardScreen = document.getElementById("bossRewardScreen");
+    const cardTooltip = document.getElementById("cardTooltip");
+
 
     // --- MELHORIA: CENTRALIZAÇÃO DE CONSTANTES ---
     // Este objeto centraliza todos os valores numéricos importantes do jogo.
@@ -1879,6 +1881,71 @@ window.onload = function() {
         showLevelUpScreen();
     }
 
+    function getCardTooltipText(card) {
+        let details = `<h4>${card.name}</h4><hr class='my-2 border-gray-600'>`;
+        switch(card.id) {
+            case "bifurcated_shot":
+                details += `<p>Adiciona <span class='tooltip-stat'>+1</span> projétil. Total: <span class='tooltip-stat'>${playerEffects.bifurcatedShot.level + 2}</span></p>`;
+                break;
+            case "plasma_cannon":
+                details += `<p>Próximo Nível: <span class='tooltip-stat'>+1</span> Carga Máxima.</p>`;
+                break;
+            case "orbital_drones":
+                details += `<p>Adiciona <span class='tooltip-stat'>+1</span> Drone. Total: <span class='tooltip-stat'>${playerEffects.orbitalDrones.drones.length + 1}</span></p>`;
+                break;
+            case "chain_lightning":
+                details += `<p>Próximo Nível: <span class='tooltip-stat'>+1</span> Salto.</p>`;
+                break;
+            case "maneuver_thrusters":
+                details += `<p>Velocidade: <span class='tooltip-stat'>+25%</span></p>`;
+                break;
+            case "adamantium_plating":
+                details += `<p>Vida Máxima: <span class='tooltip-stat'>+50</span></p>`;
+                break;
+            case "repulsion_field":
+                details += `<p>Recarga: <span class='tooltip-stat'>-15%</span><br>Raio: <span class='tooltip-stat'>+35</span></p>`;
+                break;
+            case "fine_calibration":
+                details += `<p>Velocidade do Projétil: <span class='tooltip-stat'>+20%</span></p>`;
+                break;
+            case "combat_focus":
+                details += `<p>Chance de Crítico: <span class='tooltip-stat'>+5%</span></p>`;
+                break;
+            case "improved_reactor":
+                details += `<p>Cadência de Tiro: <span class='tooltip-stat'>+25%</span></p>`;
+                break;
+            case "expansion_modules":
+                details += `<p>Alcance do Projétil: <span class='tooltip-stat'>+30%</span></p>`;
+                break;
+            case "target_analyzer":
+                details += `<p>Dano Crítico: <span class='tooltip-stat'>+15%</span><br>Chance de Crítico: <span class='tooltip-stat'>+5%</span></p>`;
+                break;
+            case "magnetic_collector":
+                details += `<p>Nível: <span class='tooltip-stat'>${playerEffects.magneticCollector.level}</span> -> <span class='tooltip-stat'>${playerEffects.magneticCollector.level + 1}</span><br>Raio de Coleta: <span class='tooltip-stat'>+20</span><br>Velocidade de Atração: <span class='tooltip-stat'>+2</span></p>`;
+                break;
+            case "cooldown_reducer":
+                details += `<p>Redução de Recarga: <span class='tooltip-stat'>-10%</span></p>`;
+                break;
+            case "explorer_luck":
+                details += `<p>Sorte: <span class='tooltip-stat'>+1%</span></p>`;
+                break;
+            case "reinforced_chassis":
+                details += `<p>Vida Máxima: <span class='tooltip-stat'>+35</span></p>`;
+                break;
+            case "armor_plating":
+                details += `<p>Armadura: <span class='tooltip-stat'>+3</span></p>`;
+                break;
+            case "hull_shield":
+                details += `<p>Converte <span class='tooltip-stat'>30%</span> da sua vida máxima em um escudo regenerativo.</p>`;
+                break;
+            default:
+                details += `<p>Nenhum detalhe adicional disponível.</p>`;
+                break;
+        }
+        return details;
+    }
+
+
     function showLevelUpScreen() {
         gameState.isLevelingUp = true;
         togglePause(true, { fromLevelUp: true });
@@ -1957,13 +2024,28 @@ window.onload = function() {
                 cardPool.splice(cardIndex, 1);
             }
     
-            availableCards.forEach(card => {
+            availableCards.forEach(cardData => {
                 const cardElement = document.createElement("div");
-                cardElement.className = `card card-${card.type}`; // Adiciona a classe de tipo
-                cardElement.innerHTML = `<h3>${card.name}</h3><p>${card.description}</p><button>Escolher</button>`;
+                cardElement.className = `card card-${cardData.type}`; // Adiciona a classe de tipo
+                cardElement.innerHTML = `<h3>${cardData.name}</h3><p>${cardData.description}</p><button>Escolher</button>`;
                 cardContainer.appendChild(cardElement);
+
+                cardElement.addEventListener('mouseenter', (e) => {
+                    cardTooltip.innerHTML = getCardTooltipText(cardData);
+                    cardTooltip.classList.remove('hidden');
+                    cardTooltip.style.opacity = 1;
+                    const cardRect = cardElement.getBoundingClientRect();
+                    cardTooltip.style.left = `${cardRect.right + 15}px`;
+                    cardTooltip.style.top = `${cardRect.top}px`;
+                });
+
+                cardElement.addEventListener('mouseleave', () => {
+                    cardTooltip.style.opacity = 0;
+                    setTimeout(() => cardTooltip.classList.add('hidden'), 200);
+                });
+
                 cardElement.querySelector("button").addEventListener("click", () => {
-                    applyCardEffect(card);
+                    applyCardEffect(cardData);
                     if (gameState.doublePickActive) {
                         gameState.doublePickActive = false;
                         showLevelUpScreen();
@@ -2743,3 +2825,4 @@ window.onload = function() {
     soundPermissionPopup.style.display = 'flex';
     updateSoundPermissionSelection();
 };
+
