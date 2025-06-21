@@ -74,9 +74,9 @@ window.onload = function() {
         },
         // Configurações dos Asteroides
         asteroid: {
-            small:  { radius: 15, health: 10,  damage: 15, xpReward: 1 },
-            medium: { radius: 30, health: 40,  damage: 30, xpReward: 5 },
-            large:  { radius: 50, health: 80,  damage: 70, xpReward: 7 }, 
+            small:  { radius: 15, health: 10,  damage: 15, xpReward: 2 },
+            medium: { radius: 30, health: 40,  damage: 30, xpReward: 7 },
+            large:  { radius: 50, health: 80,  damage: 70, xpReward: 9 }, 
             baseSpeed: 2
         },
         // Configurações dos Chefes
@@ -318,7 +318,7 @@ window.onload = function() {
 
 
     function createAsteroid(size, x, y, isFragment = false) {
-        const speedMultiplier = 1 + (gameState.bossDefeats * 0.20);
+        const speedMultiplier = 1 + (gameState.bossDefeats * 0.10);
         const baseSpeed = gameConfig.asteroid.baseSpeed;
         const speed = baseSpeed * speedMultiplier;
         const config = gameConfig.asteroid[size];
@@ -361,7 +361,7 @@ window.onload = function() {
     function createBlueMeteor() {
         const radius = (15 * 0.7) * 1.35;
         const x = Math.random() * canvas.width;
-        const y = -radius;
+        const y = -radius - (Math.random() * 250);
         const speedMultiplier = 1 + (gameState.bossDefeats * 0.20);
         const vx = -1 - Math.random() * 1.5; 
         const vy = (3 + Math.random()) * speedMultiplier; 
@@ -553,7 +553,7 @@ window.onload = function() {
         bossWarningBorder.classList.remove('hidden');
         
         const bossSpeedMultiplier = 1 + (gameState.bossDefeats * 0.20);
-        const healthMultiplier = 1 + gameState.bossDefeats * 0.5;
+        const healthMultiplier = 1 + gameState.bossDefeats * 0.35;
 
         boss = {
             type: 'terra',
@@ -583,7 +583,8 @@ window.onload = function() {
         bossWarningBorder.classList.remove('hidden');
     
         const bossSpeedMultiplier = 1.2;
-        const marsHealth = gameConfig.boss.mars.health * (1 + gameState.bossDefeats * 0.5);
+        const healthMultiplier = 1 + gameState.bossDefeats * 0.35;
+        const marsHealth = gameConfig.boss.mars.health * healthMultiplier;
 
         boss = {
             type: 'marte',
@@ -1066,7 +1067,7 @@ window.onload = function() {
             bossWarningBorder.classList.add('hidden');
             gameState.postBossMode = true;
             gameState.bossDefeats++;
-            playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + playerStats.maxHealth * 0.30);
+            playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + 50 + (playerStats.maxHealth * 0.10));
             lastBlueMeteorWaveTime = Date.now();
             const asteroidsToSpawn = 7 + gameState.bossDefeats;
             for (let i = 0; i < asteroidsToSpawn; i++) createAsteroid("large");
