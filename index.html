@@ -116,6 +116,12 @@
         <div class="gameOverContent">
             <img id="destroyedShipImage" src="assets/images/Navedestruida.png" alt="Nave Destruída">
             <img id="gameOverMessageImage" src="assets/images/ruim.png" alt="Você é ruim, melhore!">
+            <div id="gameStatsContainer">
+                <p>Tempo Sobrevivido: <span id="statsTime">0s</span></p>
+                <p>Asteroides Destruídos: <span id="statsAsteroids">0</span></p>
+                <p>Chefes Derrotados: <span id="statsBosses">0</span></p>
+                <p>Dano Total Causado: <span id="statsDamage">0</span></p>
+            </div>
             <img id="restartButton" class="restart-button-image" src="assets/images/botaojogarnovamente.png" alt="Jogar Novamente">
         </div>
     </div>
@@ -123,11 +129,11 @@
     <!-- ÁUDIO -->
     <audio id="introMusic" src="assets/audio/startwind.ogg" loop></audio>
     <audio id="gameMusic" src="assets/audio/play.ogg" loop></audio>
-    <audio id="season2Music" src="assets/audio/season2.ogg" loop></audio>
     <audio id="shotSound" src="assets/audio/tiro.ogg"></audio>
     <audio id="plasmaSound" src="assets/audio/plasma.ogg"></audio>
     <audio id="gameOverSound" src="assets/audio/gameover.ogg"></audio>
     <audio id="bossMusic" src="assets/audio/boss1.ogg" loop></audio>
+    <audio id="cooldownReadySound" src="assets/audio/cooldown_ready.ogg"></audio>
 
     <script src="js/script.js"></script>
 </body>

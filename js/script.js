@@ -15,6 +15,7 @@ window.onload = function() {
     const plasmaSound = document.getElementById("plasmaSound");
     const gameOverSound = document.getElementById("gameOverSound");
     const bossMusic = document.getElementById("bossMusic");
+    const cooldownReadySound = document.getElementById("cooldownReadySound");
     const scoreContainer = document.getElementById("scoreContainer");
     const scoreDigits = [
         document.getElementById("scoreDigit0"),
@@ -47,7 +48,6 @@ window.onload = function() {
     const damageFlashEffect = document.getElementById("damageFlashEffect");
     const notificationContainer = document.getElementById("notificationContainer");
     const bossRewardScreen = document.getElementById("bossRewardScreen");
-
 
     // --- MELHORIA: CENTRALIZAÇÃO DE CONSTANTES ---
     // Este objeto centraliza todos os valores numéricos importantes do jogo.
@@ -110,7 +110,8 @@ window.onload = function() {
         pooling: {
             initialBulletPool: 100,
             initialParticlePool: 300,
-            initialXpOrbPool: 50
+            initialXpOrbPool: 50,
+            initialFloatingNumberPool: 50
         }
     };
 
@@ -123,7 +124,10 @@ window.onload = function() {
         rerollsAvailableThisLevel: 1, sector: 1, time: 0, score: 0, bossActive: false,
         postBossMode: false, bossDefeats: 0, isGameOver: false,
         doublePickActive: false,
-        isChoosingBossReward: false
+        isChoosingBossReward: false,
+        startTime: 0,
+        asteroidsDestroyed: 0,
+        damageDealt: 0
     };
 
     // Variáveis para controle de menu por teclado
@@ -161,7 +165,8 @@ window.onload = function() {
         invisibilityCloak: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.invisibilityCloak.cooldown, duration: 0, maxDuration: gameConfig.abilities.invisibilityCloak.duration },
         shieldOvercharge: { active: false, cooldown: 0, maxCooldown: gameConfig.abilities.shieldOvercharge.cooldown, duration: 0, maxDuration: gameConfig.abilities.shieldOvercharge.duration },
         hullShield: { active: false, shield: 0, maxShield: 0 },
-        reinforcedPlating: { active: false, noDamageTimer: 0 }
+        reinforcedPlating: { active: false, noDamageTimer: 0 },
+        magneticCollector: { active: false, level: 0 }
     };
     let playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
 
@@ -172,10 +177,11 @@ window.onload = function() {
     const objectPools = {
         bullets: [],
         particles: [],
-        xpOrbs: []
+        xpOrbs: [],
+        floatingNumbers: []
     };
     // Arrays para os objetos ativos no jogo
-    const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [], lightningBolts = [], bossProjectiles = [];
+    const bullets = [], asteroids = [], particles = [], missiles = [], xpOrbs = [], satellites = [], blueMeteors = [], lightningBolts = [], bossProjectiles = [], floatingNumbers = [];
     
     let boss = null, lastSatelliteLaunch = 0, lastBlueMeteorWaveTime = 0;
     const keys = {};
@@ -271,7 +277,7 @@ window.onload = function() {
     }
 
     // --- CORREÇÃO DE BUG: Função centralizada para lidar com dano ---
-    function dealDamageToEnemy(enemy, damage) {
+    function dealDamageToEnemy(enemy, damage, isCrit = false) {
         if (enemy.health <= 0) return; // Impede gatilhos de morte múltiplos
 
         let finalDamage = damage;
@@ -281,6 +287,9 @@ window.onload = function() {
         }
 
         enemy.health -= finalDamage;
+        gameState.damageDealt += finalDamage;
+        
+        createFloatingNumber(enemy.x, enemy.y, Math.round(finalDamage), isCrit);
 
         if (enemy.health <= 0) {
             enemy.isDead = true; // Marca para remoção segura no final do ciclo
@@ -314,8 +323,23 @@ window.onload = function() {
         for (let i = 0; i < gameConfig.pooling.initialXpOrbPool; i++) {
             objectPools.xpOrbs.push({ active: false });
         }
+        for (let i = 0; i < gameConfig.pooling.initialFloatingNumberPool; i++) {
+            objectPools.floatingNumbers.push({ active: false });
+        }
     }
 
+    function createFloatingNumber(x, y, text, isCrit) {
+        const number = getFromPool('floatingNumbers');
+        number.x = x;
+        number.y = y;
+        number.text = text;
+        number.life = 60; // 1 segundo
+        number.vy = -1.5; // Velocidade de subida
+        number.alpha = 1.0;
+        number.color = isCrit ? '#FFD700' : '#FFFFFF'; // Amarelo para crítico, branco para normal
+        number.size = isCrit ? 24 : 16; // Maior para crítico
+        floatingNumbers.push(number);
+    }
 
     function createAsteroid(size, x, y, isFragment = false) {
         const speedMultiplier = 1 + (gameState.bossDefeats * 0.10);
@@ -693,9 +717,22 @@ window.onload = function() {
             if (player.y < 0) player.y = canvas.height; if (player.y > canvas.height) player.y = 0;
         }
     
-        Object.values(playerEffects).forEach(effect => { 
+        Object.keys(playerEffects).forEach(effectName => {
+            const effect = playerEffects[effectName];
             if (effect && typeof effect === 'object' && effect.cooldown > 0) {
-                 effect.cooldown--; 
+                 effect.cooldown--;
+                 if(effect.cooldown <= 0) {
+                    const icon = document.getElementById(`icon-${effectName}`);
+                    if (icon) {
+                        icon.classList.add('icon-ready-glow');
+                        setTimeout(() => icon.classList.remove('icon-ready-glow'), 500);
+                        if(soundEnabled && cooldownReadySound) {
+                            cooldownReadySound.currentTime = 0;
+                            cooldownReadySound.volume = 0.4;
+                            cooldownReadySound.play();
+                        }
+                    }
+                 }
             }
             if (effect && typeof effect === 'object' && effect.duration > 0) {
                 effect.duration--;
@@ -761,7 +798,7 @@ window.onload = function() {
                 const dist2 = Math.hypot(p2x - enemy.x, p2y - enemy.y);
     
                 if (dist1 < enemy.radius || dist2 < enemy.radius) {
-                    dealDamageToEnemy(enemy, gameConfig.abilities.energyBlade.damage);
+                    dealDamageToEnemy(enemy, gameConfig.abilities.energyBlade.damage, false);
                 }
             });
         }
@@ -874,7 +911,7 @@ window.onload = function() {
                 });
 
                 if (nextTarget) {
-                    dealDamageToEnemy(nextTarget, bolt.damage);
+                    dealDamageToEnemy(nextTarget, bolt.damage, false);
                     bolt.hitTargets.push(nextTarget);
                     bolt.target = nextTarget;
                     bolt.bouncesLeft--;
@@ -954,7 +991,9 @@ window.onload = function() {
                 const b = bullets[j];
                 if (!b.active || b.hitTargets.includes(a)) continue;
                 if (!player.invisible && Math.hypot(b.x - a.x, b.y - a.y) < a.radius + b.radius) {
-                    dealDamageToEnemy(a, b.damage);
+                    const isCrit = Math.random() < playerStats.critChance;
+                    const damage = isCrit ? b.damage * playerStats.critDamage : b.damage;
+                    dealDamageToEnemy(a, damage, isCrit);
                     b.hitTargets.push(a);
 
                     if (b.special && b.special.plasma) {
@@ -996,6 +1035,7 @@ window.onload = function() {
         }
         createXPOrb(asteroid.x, asteroid.y, xpAmount);
         gameState.score += asteroid.xpReward;
+        gameState.asteroidsDestroyed++;
         updateScoreUI();
 
         const fragments = [];
@@ -1098,7 +1138,9 @@ window.onload = function() {
                     boss.shieldHit = 10;
                     createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
                 } else {
-                    dealDamageToEnemy(boss, b.damage);
+                    const isCrit = Math.random() < playerStats.critChance;
+                    const damage = isCrit ? b.damage * playerStats.critDamage : b.damage;
+                    dealDamageToEnemy(boss, damage, isCrit);
                     b.hitTargets.push(boss); // Previne múltiplos acertos no chefe
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
                 }
@@ -1286,7 +1328,9 @@ window.onload = function() {
                     boss.shieldHit = 10;
                     createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
                 } else {
-                    dealDamageToEnemy(boss, b.damage);
+                    const isCrit = Math.random() < playerStats.critChance;
+                    const damage = isCrit ? b.damage * playerStats.critDamage : b.damage;
+                    dealDamageToEnemy(boss, damage, isCrit);
                     b.hitTargets.push(boss);
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
                 }
@@ -1306,7 +1350,9 @@ window.onload = function() {
             boss.turrets.forEach(turret => {
                 if (!b.active) return;
                 if (turret.health > 0 && !b.hitTargets.includes(turret) && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius + b.radius) {
-                    dealDamageToEnemy(turret, b.damage);
+                    const isCrit = Math.random() < playerStats.critChance;
+                    const damage = isCrit ? b.damage * playerStats.critDamage : b.damage;
+                    dealDamageToEnemy(turret, damage, isCrit);
                     b.hitTargets.push(turret);
                     hitComponent = true;
                     if(turret.health <= 0) createParticles(turret.x, turret.y, 50, "#FFA500", 5, 40);
@@ -1319,7 +1365,9 @@ window.onload = function() {
                 if (!b.active) return;
                 if (ship.state !== 'idle' && ship.health > 0 && !b.hitTargets.includes(ship)) {
                     if (Math.hypot(b.x - ship.currentX, b.y - ship.y) < 30 + b.radius) {
-                        dealDamageToEnemy(ship, b.damage);
+                        const isCrit = Math.random() < playerStats.critChance;
+                        const damage = isCrit ? b.damage * playerStats.critDamage : b.damage;
+                        dealDamageToEnemy(ship, damage, isCrit);
                         b.hitTargets.push(ship);
                         hitComponent = true;
                         if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500", 5, 40);
@@ -1358,7 +1406,9 @@ window.onload = function() {
                 const b = bullets[j];
                 if (!b.active || b.hitTargets.includes(s)) continue;
                 if (!player.invisible && Math.hypot(b.x - s.x, b.y - s.y) < s.radius + b.radius) {
-                    dealDamageToEnemy(s, b.damage);
+                    const isCrit = Math.random() < playerStats.critChance;
+                    const damage = isCrit ? b.damage * playerStats.critDamage : b.damage;
+                    dealDamageToEnemy(s, damage, isCrit);
                     if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
                         createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
                     }
@@ -1438,9 +1488,17 @@ window.onload = function() {
             const orb = xpOrbs[i];
             orb.life--;
             const dist = Math.hypot(player.x - orb.x, player.y - orb.y);
-            if (dist < playerStats.xpCollectionRadius) {
+            let speed = 5;
+            let currentRadius = playerStats.xpCollectionRadius;
+            if(playerEffects.magneticCollector.active){
+                speed += playerEffects.magneticCollector.level * 2;
+                currentRadius += playerEffects.magneticCollector.level * 20;
+            }
+
+            if (dist < currentRadius) {
                 const angleToPlayer = Math.atan2(player.y - orb.y, player.x - orb.x);
-                orb.vx = Math.cos(angleToPlayer) * 5; orb.vy = Math.sin(angleToPlayer) * 5;
+                orb.vx = Math.cos(angleToPlayer) * speed; 
+                orb.vy = Math.sin(angleToPlayer) * speed;
             } else {
                 orb.vx *= 0.98; orb.vy *= 0.98;
             }
@@ -1453,6 +1511,20 @@ window.onload = function() {
             else if (orb.life <= 0) {
                 returnToPool(orb, 'xpOrbs');
                 xpOrbs.splice(i, 1);
+            }
+        }
+    }
+
+    function updateFloatingNumbers() {
+        for (let i = floatingNumbers.length - 1; i >= 0; i--) {
+            const num = floatingNumbers[i];
+            num.y += num.vy;
+            num.life--;
+            num.alpha = num.life / 60;
+
+            if (num.life <= 0) {
+                returnToPool(num, 'floatingNumbers');
+                floatingNumbers.splice(i, 1);
             }
         }
     }
@@ -1546,6 +1618,19 @@ window.onload = function() {
     function drawXPOrbs() { for (const orb of xpOrbs) { ctx.fillStyle = "#00FF00"; ctx.beginPath(); ctx.arc(orb.x, orb.y, 5, 0, Math.PI * 2); ctx.fill(); } }
 
     function drawParticles() { for (const p of particles) { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2); ctx.fill(); } }
+
+    function drawFloatingNumbers() {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const num of floatingNumbers) {
+            ctx.font = `bold ${num.size}px 'Courier New', monospace`;
+            ctx.fillStyle = `rgba(${num.color.slice(1).match(/.{1,2}/g).map(hex => parseInt(hex, 16)).join(',')}, ${num.alpha})`;
+            ctx.fillText(num.text, num.x, num.y);
+        }
+        ctx.restore();
+    }
+
 
     function drawLightningBolts() {
         ctx.save();
@@ -1718,7 +1803,6 @@ window.onload = function() {
         const fireRateWithBonus = playerEffects.battleFrenzy.active && playerEffects.battleFrenzy.timer > 0 ? playerStats.fireRate * 1.5 : playerStats.fireRate;
         if (now - lastFireTime > 1000 / fireRateWithBonus) {
             let damage = playerStats.baseDamage;
-            if (Math.random() < playerStats.critChance) damage *= playerStats.critDamage;
             const special = { spectral: playerEffects.spectralCannon };
             
             if (playerEffects.bifurcatedShot.active) {
@@ -2024,7 +2108,10 @@ window.onload = function() {
                 playerStats.critDamage += 0.15;
                 playerStats.critChance += 0.05;
                 break;
-            case "magnetic_collector": playerStats.xpCollectionRadius *= 1.2; break;
+            case "magnetic_collector": 
+                playerEffects.magneticCollector.active = true;
+                playerEffects.magneticCollector.level++;
+                break;
             case "cooldown_reducer": playerStats.cooldownReduction *= 0.9; break;
             case "explorer_luck": playerStats.luck += 0.01; break;
             case "reinforced_chassis": playerStats.maxHealth += 35; playerStats.health += 35; break;
@@ -2088,6 +2175,13 @@ window.onload = function() {
             gameOverSound.play();
         }
 
+        // Atualizar estatísticas na tela de Game Over
+        const timeSurvived = Math.floor((Date.now() - gameState.startTime) / 1000);
+        document.getElementById('statsTime').textContent = `${timeSurvived}s`;
+        document.getElementById('statsAsteroids').textContent = gameState.asteroidsDestroyed;
+        document.getElementById('statsBosses').textContent = gameState.bossDefeats;
+        document.getElementById('statsDamage').textContent = Math.round(gameState.damageDealt);
+
         createParticles(player.x, player.y, 150, "#ff4500", 4, 60);
         createParticles(player.x, player.y, 100, "#ffa500", 3, 50);
         setTimeout(() => { gameOverScreen.classList.remove('hidden'); }, 1000); 
@@ -2116,6 +2210,9 @@ window.onload = function() {
         gameState.bossActive = false;
         gameState.postBossMode = false;
         gameState.bossDefeats = 0;
+        gameState.startTime = Date.now();
+        gameState.asteroidsDestroyed = 0;
+        gameState.damageDealt = 0;
         boss = null;
         playerStats = { ...initialPlayerStats };
         playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
@@ -2123,11 +2220,13 @@ window.onload = function() {
         // Limpa arrays ativos
         asteroids.length = 0; bullets.length = 0; particles.length = 0;
         missiles.length = 0; xpOrbs.length = 0; satellites.length = 0; blueMeteors.length = 0; lightningBolts.length = 0;
-        
+        floatingNumbers.length = 0;
+
         // Re-inicializa os pools
         objectPools.bullets = [];
         objectPools.particles = [];
         objectPools.xpOrbs = [];
+        objectPools.floatingNumbers = [];
         prewarmPools();
         
         initGame();
@@ -2216,6 +2315,7 @@ window.onload = function() {
             if (gameState.postBossMode) updateBlueMeteors();
             updateParticles();
             updateXPOrbs();
+            updateFloatingNumbers();
             
             for (let i = asteroids.length - 1; i >= 0; i--) {
                 if (asteroids[i].isDead) {
@@ -2242,6 +2342,7 @@ window.onload = function() {
             drawBoss();
             drawSatellites();
             drawBlueMeteors();
+            drawFloatingNumbers();
             
             if (!gameState.isGameOver) {
                 drawPlayer();
@@ -2367,6 +2468,7 @@ window.onload = function() {
         player.x = canvas.width / 2;
         player.y = canvas.height / 2;
         player.invisible = false; 
+        gameState.startTime = Date.now();
         asteroids.length = 0;
         for (let i = 0; i < 5; i++) createAsteroid("large");
         updateUI();
