@@ -60,7 +60,7 @@ window.onload = function() {
         player: {
             maxHealth: 100,
             baseDamage: 12, 
-            armor: 0,
+            armor: 1,
             fireRate: 2.3, 
             moveSpeed: 1.3,
             critChance: 0.05,
