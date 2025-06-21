@@ -329,6 +329,23 @@ body {
     animation: pulse-red 1.5s infinite;
 }
 
+#criticalHealthVignette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1400; /* Abaixo do damage flash, mas acima do resto */
+    box-shadow: inset 0 0 0 0 rgba(200, 0, 0, 0);
+    transition: box-shadow 0.5s ease-out;
+}
+
+#criticalHealthVignette.active {
+    animation: pulse-vignette 2s infinite;
+}
+
+
 #levelUpScreen {
     position: fixed;
     top: 0;
@@ -894,6 +911,13 @@ body {
     50% { box-shadow: inset 0 0 25px 15px rgba(255, 60, 60, 1); }
     100% { box-shadow: inset 0 0 25px 15px rgba(255, 0, 0, 0.7); }
 }
+
+@keyframes pulse-vignette {
+    0% { box-shadow: inset 0 0 100px 50px rgba(200, 0, 0, 0.2); }
+    50% { box-shadow: inset 0 0 120px 60px rgba(255, 0, 0, 0.4); }
+    100% { box-shadow: inset 0 0 100px 50px rgba(200, 0, 0, 0.2); }
+}
+
 
 @keyframes pulse {
     0%, 100% { 

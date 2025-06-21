@@ -37,6 +37,7 @@ window.onload = function() {
     const bossHealthBarContainer = document.getElementById("bossHealthBarContainer");
     const bossHealthText = document.getElementById("bossHealthText");
     const bossWarningBorder = document.getElementById("bossWarningBorder");
+    const criticalHealthVignette = document.getElementById("criticalHealthVignette");
     const cheatMenu = document.getElementById("cheatMenu");
     const cheatPowerupList = document.getElementById("cheatPowerupList");
     const closeCheatMenuBtn = document.getElementById("closeCheatMenuBtn");
@@ -61,14 +62,14 @@ window.onload = function() {
             baseDamage: 12, 
             armor: 0,
             fireRate: 2.3, 
-            moveSpeed: 1.5,
+            moveSpeed: 1.3,
             critChance: 0.05,
             critDamage: 1.5, // Fator de dano para acertos críticos
             projectileSpeed: 5.5, 
             projectileRange: 1000, 
             xpCollectionRadius: 100,
             cooldownReduction: 1, // Fator de redução de recarga
-            rotationSpeed: 0.08, 
+            rotationSpeed: 0.05, 
             luck: 0.1, // Chance de eventos positivos
             size: 30.375, 
             bobbingSpeed: 400, // Velocidade da flutuação
@@ -498,6 +499,10 @@ window.onload = function() {
         orb.vy = (Math.random() - 0.5) * 2;
         orb.amount = amount;
         orb.life = 1000;
+        orb.isLucky = Math.random() < playerStats.luck;
+        if (orb.isLucky) {
+            orb.amount *= 2;
+        }
         xpOrbs.push(orb);
     }
 
@@ -1506,6 +1511,9 @@ window.onload = function() {
             }
             orb.x += orb.vx; orb.y += orb.vy;
             if (dist < 15 && !gameState.isGameOver) { 
+                if (orb.isLucky) {
+                    createFloatingNumber(orb.x, orb.y - 10, "Sorte!", true);
+                }
                 gainXP(orb.amount);
                 returnToPool(orb, 'xpOrbs');
                 xpOrbs.splice(i, 1); 
@@ -1617,7 +1625,14 @@ window.onload = function() {
 
     function drawMissiles() { for (const m of missiles) { ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.angle); ctx.fillStyle = "orange"; ctx.fillRect(-5, -2, 10, 4); ctx.restore(); } }
 
-    function drawXPOrbs() { for (const orb of xpOrbs) { ctx.fillStyle = "#00FF00"; ctx.beginPath(); ctx.arc(orb.x, orb.y, 5, 0, Math.PI * 2); ctx.fill(); } }
+    function drawXPOrbs() { 
+        for (const orb of xpOrbs) {
+            ctx.fillStyle = orb.isLucky ? "#ffd700" : "#00FF00";
+            ctx.beginPath();
+            ctx.arc(orb.x, orb.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
 
     function drawParticles() { for (const p of particles) { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2); ctx.fill(); } }
 
@@ -1939,7 +1954,7 @@ window.onload = function() {
                 details += `<p>Converte <span class='tooltip-stat'>30%</span> da sua vida máxima em um escudo regenerativo.</p>`;
                 break;
             default:
-                details += `<p>Nenhum detalhe adicional disponível.</p>`;
+                details = `<h4>${card.name}</h4><p>${card.description}</p>`;
                 break;
         }
         return details;
@@ -2328,12 +2343,20 @@ window.onload = function() {
     }
 
     function updateUI() {
+        const healthPercentage = playerStats.health / playerStats.maxHealth;
+        const criticalHealthVignette = document.getElementById('criticalHealthVignette');
+        if (healthPercentage < 0.3) {
+            criticalHealthVignette.classList.add('active');
+        } else {
+            criticalHealthVignette.classList.remove('active');
+        }
+
         xpBarContainer.querySelector("#xpText").textContent = `NÍVEL ${gameState.level} | XP: ${gameState.xp}/${gameState.xpRequired}`;
         xpBarContainer.querySelector("#xpBarFill").style.width = `${(gameState.xp / gameState.xpRequired) * 100}%`;
         healthBarContainer.querySelector("#healthText").textContent = `HP: ${Math.ceil(playerStats.health)}/${playerStats.maxHealth}`;
         const healthBarFill = healthBarContainer.querySelector("#healthBarFill");
-        healthBarFill.style.width = `${(playerStats.health / playerStats.maxHealth) * 100}%`;
-        healthBarFill.style.background = (playerStats.health / playerStats.maxHealth < 0.3) ? 'linear-gradient(90deg, #ff0000, #ff6600)' : 'linear-gradient(90deg, #00ff00, #ffff00)';
+        healthBarFill.style.width = `${healthPercentage * 100}%`;
+        healthBarFill.style.background = healthPercentage < 0.3 ? 'linear-gradient(90deg, #ff0000, #ff6600)' : 'linear-gradient(90deg, #00ff00, #ffff00)';
         
         updateScoreUI();
 
@@ -2825,4 +2848,3 @@ window.onload = function() {
     soundPermissionPopup.style.display = 'flex';
     updateSoundPermissionSelection();
 };
-
