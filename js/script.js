@@ -201,6 +201,7 @@ window.onload = function() {
     const energyBladeImage = new Image(); energyBladeImage.src = "assets/images/lamina.png"; 
     const marsImage = new Image(); marsImage.src = "assets/images/marte.png";
     const marsShipImage = new Image(); marsShipImage.src = "assets/images/navemarte.png";
+    const droneImage = new Image(); droneImage.src = "assets/images/dronesnave.png";
     
     const iconImages = {
         staticPulse: 'assets/icons/static_pulse.png',
@@ -260,6 +261,14 @@ window.onload = function() {
     ];
 
     // --- 3. DEFINIÇÕES DE FUNÇÕES ---
+    
+    // Função auxiliar para interpolação suave de ângulos
+    function lerpAngle(start, end, amount) {
+        let difference = end - start;
+        while (difference < -Math.PI) difference += Math.PI * 2;
+        while (difference > Math.PI) difference -= Math.PI * 2;
+        return start + difference * amount;
+    }
 
     // --- CORREÇÃO DE BUG: Função centralizada para lidar com dano ---
     function dealDamageToEnemy(enemy, damage) {
@@ -587,12 +596,12 @@ window.onload = function() {
             shieldActive: true,
             shieldHit: 0,
             turrets: [
-                { xOffset: -105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 },
-                { xOffset: 105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2 }
+                { xOffset: -105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2, angle: Math.PI / 2, targetAngle: Math.PI / 2 },
+                { xOffset: 105, yOffset: 0, health: 100, fireCooldown: 0, fireRate: 60, radius: 20, animationPhase: Math.random() * Math.PI * 2, angle: Math.PI / 2, targetAngle: Math.PI / 2 }
             ],
             laserShips: [
-                { side: 'left', initialY: canvas.height / 3, y: canvas.height / 3, health: 150, state: 'idle', timer: 420, animationPhase: Math.random() * Math.PI * 2, currentX: -50, targetX: -50 },
-                { side: 'right', initialY: canvas.height / 3 * 2, y: canvas.height / 3 * 2, health: 150, state: 'idle', timer: 420, animationPhase: Math.random() * Math.PI * 2, currentX: canvas.width + 50, targetX: canvas.width + 50 }
+                { side: 'left', health: 150, state: 'entering', timer: 0, animationPhase: Math.random() * Math.PI * 2, currentX: -50, targetX: 50, y: canvas.height / 2, targetY: canvas.height / 2, moveSpeedY: 2 },
+                { side: 'right', health: 150, state: 'entering', timer: 0, animationPhase: Math.random() * Math.PI * 2, currentX: canvas.width + 50, targetX: canvas.width - 50, y: canvas.height / 2, targetY: canvas.height / 2, moveSpeedY: 2 }
             ],
             lasers: [],
             heatAura: {
@@ -977,7 +986,7 @@ window.onload = function() {
     function handleAsteroidDestruction(asteroid, index, killerBullet = null) {
         let particleCount = 20, particleSize = 3, particleLife = 30;
         if(asteroid.size === "medium") { particleCount = 40; particleSize = 4; particleLife = 40; }
-        if(asteroid.size === "large")  { particleCount = 60; particleSize = 5; particleLife = 50; }
+        if(asteroid.size === "large")  { particleCount = 60; particleSize = 5, particleLife = 50; }
         createParticles(asteroid.x, asteroid.y, particleCount, "#A9A9A9", particleSize, particleLife);
 
         let xpAmount = asteroid.xpReward;
@@ -993,13 +1002,18 @@ window.onload = function() {
             fragments.push(createAsteroid("medium", asteroid.x, asteroid.y, true)); 
             fragments.push(createAsteroid("medium", asteroid.x, asteroid.y, true)); 
         } else if (asteroid.size === "medium") { 
-            for(let i=0; i<4; i++) fragments.push(createAsteroid("small", asteroid.x, asteroid.y, true)); 
+            // Para asteroides médios, crie os fragmentos pequenos
+            for(let i=0; i<4; i++) {
+                fragments.push(createAsteroid("small", asteroid.x, asteroid.y, true)); 
+            }
         }
 
+        // Alteração: Garantir que a proteção do plasma se aplique aos fragmentos de asteroides de qualquer tamanho.
+        // Esta lógica impede que um único tiro de plasma destrua o asteroide e seus fragmentos instantaneamente.
         if (killerBullet && killerBullet.special.plasma) {
-            fragments.forEach(frag => {
+            for (const frag of fragments) {
                 killerBullet.hitTargets.push(frag);
-            });
+            }
         }
         
         asteroids.splice(index, 1);
@@ -1074,35 +1088,39 @@ window.onload = function() {
 
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
-            if (!b.active || b.hitTargets.includes(boss)) continue;
-            let hit = false;
-            let hitBossBody = !player.invisible && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius + b.radius;
+            if (!b.active) continue;
 
+            // --- Colisão com o corpo principal do chefe ---
+            let hitBossBody = !player.invisible && !b.hitTargets.includes(boss) && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius + b.radius;
             if (hitBossBody) {
                 if (boss.shieldActive) {
                     boss.shieldHit = 10;
                     createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
-                    hit = true;
                 } else {
                     dealDamageToEnemy(boss, b.damage);
-                    if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
-                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
-                    }
-                    b.hitTargets.push(boss);
+                    b.hitTargets.push(boss); // Previne múltiplos acertos no chefe
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
-                    hit = true;
                 }
-            } else if (Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius + b.radius) {
-                if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
-                    createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
+
+                // Tiros de plasma são destruídos pelo corpo principal do chefe
+                if (!b.special.spectral) {
+                    returnToPool(b, 'bullets');
+                    bullets.splice(i, 1);
                 }
-                createParticles(b.x, b.y, 3, "#cccccc", 1.5);
-                hit = true;
+                continue; // Lógica da bala encerrada para este frame
             }
             
-            if (hit && !b.special.spectral && !b.special.plasma) {
-                returnToPool(b, 'bullets');
-                bullets.splice(i, 1);
+            // --- Colisão com a lua ---
+            // Verifica se a lua já foi atingida por esta bala
+            if (!b.hitTargets.includes('terra_moon') && Math.hypot(b.x - moonX, b.y - moonY) < boss.moon.radius + b.radius) {
+                createParticles(b.x, b.y, 3, "#cccccc", 1.5);
+                b.hitTargets.push('terra_moon'); // Marca a lua como atingida
+
+                // Ttiros de plasma atravessam a lua
+                if (!b.special.spectral && !b.special.plasma) {
+                    returnToPool(b, 'bullets');
+                    bullets.splice(i, 1);
+                }
             }
         }
 
@@ -1157,36 +1175,90 @@ window.onload = function() {
             turret.x = boss.x + turret.xOffset;
             turret.y = boss.y + turret.yOffset + Math.sin(Date.now() / 400 + turret.animationPhase) * 8;
             
+            const safeZoneWidth = boss.radius * 2;
+            const safeZoneLeft = boss.x - safeZoneWidth / 2;
+            const safeZoneRight = boss.x + safeZoneWidth / 2;
+            
+            const inSafeZone = player.x > safeZoneLeft && player.x < safeZoneRight;
+    
+            if (!inSafeZone) {
+                turret.targetAngle = Math.atan2(player.y - turret.y, player.x - turret.x);
+            } else {
+                turret.targetAngle = Math.PI / 2; // Aim straight down
+            }
+    
+            turret.angle = lerpAngle(turret.angle, turret.targetAngle, 0.05);
+            
             if(boss.hasEntered) {
                 turret.fireCooldown--;
                 if (turret.fireCooldown <= 0) {
-                    createBossProjectile(turret.x, turret.y, 0, 5, gameConfig.boss.mars.turretDamage);
+                    const projectileSpeed = 5;
+                    const vx = Math.cos(turret.angle) * projectileSpeed;
+                    const vy = Math.sin(turret.angle) * projectileSpeed;
+                    createBossProjectile(turret.x, turret.y, vx, vy, gameConfig.boss.mars.turretDamage);
                     turret.fireCooldown = turret.fireRate;
                 }
             }
         });
         
         boss.laserShips.forEach(ship => {
-            if (ship.health <= 0 && ship.state !== 'dead') {
-                ship.state = 'exiting';
-                ship.targetX = ship.side === 'left' ? -50 : canvas.width + 50;
+            if (ship.health <= 0) {
+                ship.state = 'dead'; // Marca a nave como morta para não fazer mais nada
+                return;
             }
-
-            const onScreenX = ship.side === 'left' ? 40 : canvas.width - 40;
-            const offScreenX = ship.side === 'left' ? -50 : canvas.width + 50;
-            
-            if (!ship.initialY) ship.initialY = ship.y;
-            ship.y = ship.initialY + Math.sin(Date.now() / 600 + ship.animationPhase) * 5;
-
-            if(boss.hasEntered) ship.timer--;
+    
+            const onScreenX = ship.side === 'left' ? 50 : canvas.width - 50;
+    
             switch(ship.state) {
-                case 'idle': if (ship.timer <= 0 && ship.health > 0) { ship.state = 'entering'; ship.targetX = onScreenX; } break;
-                case 'entering': if (Math.abs(ship.currentX - ship.targetX) < 1) { ship.state = 'charging'; ship.timer = 120; } break;
-                case 'charging': if (ship.timer <= 0) { ship.state = 'firing'; ship.timer = 120; boss.lasers.push({ y: ship.y, life: 120, side: ship.side, originX: ship.currentX }); } break;
-                case 'firing': if (ship.timer <= 0) { ship.state = 'exiting'; ship.targetX = offScreenX; } break;
-                case 'exiting': if (Math.abs(ship.currentX - ship.targetX) < 1) { if (ship.health > 0) { ship.state = 'idle'; ship.timer = 420; } else { ship.state = 'dead'; } } break;
+                case 'entering':
+                    ship.currentX += (onScreenX - ship.currentX) * 0.05;
+                    if (Math.abs(ship.currentX - onScreenX) < 1) {
+                        ship.currentX = onScreenX;
+                        ship.state = 'moving'; // Começa a se mover após entrar
+                    }
+                    break;
+                case 'moving':
+                    // Se não tem um alvo Y ou chegou perto, pega um novo
+                    if (!ship.targetY || Math.abs(ship.y - ship.targetY) < 10) {
+                        const bossBottom = boss.y + boss.radius;
+                        const availableHeight = canvas.height - bossBottom - 50; // Subtrai uma margem
+                        ship.targetY = bossBottom + 25 + Math.random() * availableHeight;
+                        ship.moveSpeedY = (ship.targetY > ship.y ? 1 : -1) * (1 + Math.random());
+                    }
+                    ship.y += ship.moveSpeedY;
+
+                    // Lógica para decidir quando parar e atacar
+                    if (!ship.attackTimer) ship.attackTimer = 300 + Math.random() * 180;
+                    ship.attackTimer--;
+                    if(ship.attackTimer <= 0) {
+                        ship.state = 'charging';
+                        ship.timer = 120; // Tempo de carga
+                    }
+                    break;
+                case 'charging':
+                    ship.timer--;
+                    if (ship.timer <= 0) {
+                        ship.state = 'firing';
+                        ship.timer = 180; // Duração total da animação do laser
+                        boss.lasers.push({
+                            y: ship.y,
+                            life: 180, maxLife: 180,
+                            side: ship.side, originX: ship.currentX,
+                            warmup: 40, cooldown: 40
+                        });
+                    }
+                    break;
+                case 'firing':
+                    ship.timer--;
+                    if (ship.timer <= 0) {
+                        ship.state = 'moving';
+                        ship.attackTimer = 300 + Math.random() * 180; // Reseta o timer para o próximo ataque
+                    }
+                    break;
+                 case 'dead':
+                    // A nave fica parada e não faz nada
+                    break;
             }
-            ship.currentX += (ship.targetX - ship.currentX) * 0.05;
         });
 
         for (let i = boss.lasers.length - 1; i >= 0; i--) {
@@ -1205,52 +1277,58 @@ window.onload = function() {
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
             if (!b.active) continue;
-            let hit = false;
-            let hitBossBody = !player.invisible && !b.hitTargets.includes(boss) && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius + b.radius;
 
+            // --- 1. Colisão com o corpo principal do chefe ---
+            let hitBossBody = !player.invisible && !b.hitTargets.includes(boss) && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius + b.radius;
             if (hitBossBody) {
                 if (boss.shieldActive) {
                     boss.shieldHit = 10;
                     createParticles(b.x, b.y, 10, '#00FFFF', 3, 20);
-                    hit = true;
                 } else {
                     dealDamageToEnemy(boss, b.damage);
-                    if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
-                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
-                    }
                     b.hitTargets.push(boss);
                     createParticles(b.x, b.y, 5, "#ff4500", 2);
-                    hit = true;
                 }
+
+                // Tiros de plasma são destruídos pelo corpo principal do chefe
+                if (!b.special.spectral) {
+                    returnToPool(b, 'bullets');
+                    bullets.splice(i, 1);
+                }
+                continue; // Lógica da bala encerrada para este frame
             }
 
+            // --- 2. Colisão com Componentes (Torretas, Naves Laser) ---
+            let hitComponent = false;
+            
+            // Torretas
             boss.turrets.forEach(turret => {
+                if (!b.active) return;
                 if (turret.health > 0 && !b.hitTargets.includes(turret) && Math.hypot(b.x - turret.x, b.y - turret.y) < turret.radius + b.radius) {
                     dealDamageToEnemy(turret, b.damage);
-                     if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
-                        createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
-                    }
                     b.hitTargets.push(turret);
-                    hit = true;
+                    hitComponent = true;
                     if(turret.health <= 0) createParticles(turret.x, turret.y, 50, "#FFA500", 5, 40);
                     else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
                 }
             });
+
+            // Naves Laser
             boss.laserShips.forEach(ship => {
+                if (!b.active) return;
                 if (ship.state !== 'idle' && ship.health > 0 && !b.hitTargets.includes(ship)) {
                     if (Math.hypot(b.x - ship.currentX, b.y - ship.y) < 30 + b.radius) {
                         dealDamageToEnemy(ship, b.damage);
-                        if (b.special && b.special.plasma && !playerEffects.spectralCannon) {
-                            createParticles(b.x, b.y, 5, '#87CEFA', 2.5, 20);
-                        }
                         b.hitTargets.push(ship);
-                         hit = true;
-                         if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500", 5, 40);
-                         else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
+                        hitComponent = true;
+                        if(ship.health <= 0) createParticles(ship.currentX, ship.y, 50, "#FFA500", 5, 40);
+                        else createParticles(b.x, b.y, 3, "#FFFFFF", 1.5);
                     }
                 }
             });
-            if (hit && !b.special.spectral && !b.special.plasma) {
+
+            // Se um componente foi atingido, destrói a bala (a menos que seja plasma ou espectral)
+            if (hitComponent && !b.special.spectral && !b.special.plasma) {
                 returnToPool(b, 'bullets');
                 bullets.splice(i, 1);
             }
@@ -1522,11 +1600,15 @@ window.onload = function() {
             ctx.drawImage(marsImage, boss.x - boss.radius, boss.y - boss.radius, boss.radius * 2, boss.radius * 2);
             boss.turrets.forEach(turret => {
                 if (turret.health > 0) {
-                    ctx.drawImage(marsShipImage, turret.x - turret.radius, turret.y - turret.radius, turret.radius * 2, turret.radius * 2);
+                    ctx.save();
+                    ctx.translate(turret.x, turret.y);
+                    ctx.rotate(turret.angle); 
+                    ctx.drawImage(marsShipImage, -turret.radius, -turret.radius, turret.radius * 2, turret.radius * 2);
+                    ctx.restore();
                 }
             });
             boss.laserShips.forEach(ship => {
-                if(ship.state !== 'idle' && ship.state !== 'dead' && ship.health > 0) {
+                if(ship.state !== 'dead' && ship.health > 0) {
                     const shipSize = 30;
                     ctx.save();
                     ctx.translate(ship.currentX, ship.y);
@@ -1544,10 +1626,46 @@ window.onload = function() {
             });
             boss.lasers.forEach(laser => {
                 ctx.save();
-                ctx.fillStyle = `rgba(255, 0, 0, ${0.5 * (laser.life / 120)})`;
+                const laserAge = laser.maxLife - laser.life;
                 const startX = laser.side === 'left' ? laser.originX : 0;
                 const width = laser.side === 'left' ? canvas.width - laser.originX : laser.originX;
-                ctx.fillRect(startX, laser.y - 20, width, 40);
+                
+                let beamWidth = 40;
+                let alpha = 0.7;
+        
+                if (laserAge < laser.warmup) { // Warmup
+                    const warmupProgress = laserAge / laser.warmup;
+                    beamWidth *= warmupProgress;
+                    alpha *= warmupProgress;
+                    for(let k=0; k<5; k++){
+                        const pX = laser.originX + (Math.random() - 0.5) * 50 * warmupProgress;
+                        const pY = laser.y + (Math.random() - 0.5) * 50 * warmupProgress;
+                        ctx.fillStyle = `rgba(255, ${150 + Math.random() * 105}, 100, ${1-warmupProgress})`;
+                        ctx.beginPath();
+                        ctx.arc(pX, pY, Math.random() * 3 * warmupProgress, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else if (laser.life < laser.cooldown) { // Cooldown
+                    const cooldownProgress = laser.life / laser.cooldown;
+                    beamWidth *= cooldownProgress;
+                    alpha *= cooldownProgress;
+                }
+        
+                // Outer glow
+                const grad = ctx.createLinearGradient(0, laser.y - beamWidth / 2, 0, laser.y + beamWidth/2);
+                grad.addColorStop(0, `rgba(255, 100, 0, 0)`);
+                grad.addColorStop(0.2, `rgba(255, 50, 50, ${alpha * 0.5})`);
+                grad.addColorStop(0.5, `rgba(255, 150, 50, ${alpha * 0.6})`);
+                grad.addColorStop(0.8, `rgba(255, 50, 50, ${alpha * 0.5})`);
+                grad.addColorStop(1, `rgba(255, 100, 0, 0)`);
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(startX, laser.y - beamWidth / 2, width, beamWidth);
+                
+                // Inner core
+                ctx.fillStyle = `rgba(255, 255, 220, ${alpha})`;
+                ctx.fillRect(startX, laser.y - beamWidth / 8, width, beamWidth / 4);
+                
                 ctx.restore();
             });
         }
@@ -1849,7 +1967,7 @@ window.onload = function() {
                 break;
             case "orbital_drones":
                 playerEffects.orbitalDrones.active = true;
-                playerEffects.orbitalDrones.drones.push({ angleOffset: Math.random() * Math.PI * 2, dist: 60, fireRate: 1, lastFire: 0 });
+                playerEffects.orbitalDrones.drones.push({ angleOffset: Math.random() * Math.PI * 2, dist: 60, fireRate: 1, lastFire: 0, recoil: 0 });
                 break;
             case "energy_blade": 
                 if (!playerEffects.energyBlade.active) addPassiveIcon('energyBlade'); 
@@ -2133,15 +2251,40 @@ window.onload = function() {
                 playerEffects.orbitalDrones.drones.forEach((drone, index) => {
                     const angleStep = (Math.PI * 2) / playerEffects.orbitalDrones.drones.length;
                     drone.angleOffset += 0.05;
-                    const dX = player.x + Math.cos(angleStep * index + drone.angleOffset) * drone.dist;
-                    const dY = player.y + Math.sin(angleStep * index + drone.angleOffset) * drone.dist;
-                    ctx.fillStyle = "#8A2BE2"; ctx.beginPath(); ctx.arc(dX, dY, 8, 0, Math.PI * 2); ctx.fill();
+                    const orbitalAngle = angleStep * index + drone.angleOffset;
+                    let dX = player.x + Math.cos(orbitalAngle) * drone.dist;
+                    let dY = player.y + Math.sin(orbitalAngle) * drone.dist;
+                    
+                    if (drone.recoil > 0) {
+                        dX -= Math.cos(drone.fireAngle) * drone.recoil;
+                        dY -= Math.sin(drone.fireAngle) * drone.recoil;
+                        drone.recoil *= 0.8;
+                    }
+
+                    ctx.save();
+                    ctx.translate(dX, dY);
+                    
+                    const target = [...asteroids, ...satellites, ...(boss ? [boss] : [])].filter(e => e.health > 0)
+                                     .reduce((closest, e) => (Math.hypot(dX - e.x, dY - e.y) < Math.hypot(dX - (closest?.x || Infinity), dY - (closest?.y || Infinity)) ? e : closest), null);
+                    
+                    if (target) {
+                        const angleToTarget = Math.atan2(target.y - dY, target.x - dX);
+                        ctx.rotate(angleToTarget + Math.PI / 2);
+                    } else {
+                        ctx.rotate(orbitalAngle + Math.PI / 2);
+                    }
+                    
+                    const droneSize = 24;
+                    ctx.drawImage(droneImage, -droneSize / 2, -droneSize / 2, droneSize, droneSize);
+                    ctx.restore();
+
                     if(!gameState.isGameOver && Date.now() - drone.lastFire > 1000 / drone.fireRate) {
-                        const target = [...asteroids, ...satellites].reduce((closest, ast) => (Math.hypot(dX - ast.x, dY - ast.y) < Math.hypot(dX - (closest?.x || Infinity), dY - (closest?.y || Infinity)) ? ast : closest), null);
                         if(target){
                            const angleToTarget = Math.atan2(target.y - dY, target.x - dX);
                            createBullet(dX, dY, angleToTarget, playerStats.projectileSpeed * 0.8, playerStats.baseDamage * 0.5);
                            drone.lastFire = Date.now();
+                           drone.recoil = 5; 
+                           drone.fireAngle = angleToTarget;
                         }
                     }
                 });
