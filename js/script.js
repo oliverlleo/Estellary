@@ -402,13 +402,6 @@ window.onload = function() {
             shotSound.volume = 0.5;
             shotSound.play();
         }
-        if (playerEffects.missileStorm.active) {
-            playerEffects.missileStorm.shotCount++;
-            if (playerEffects.missileStorm.shotCount >= playerEffects.missileStorm.shotsNeeded) {
-                launchMissileSalvo();
-                playerEffects.missileStorm.shotCount = 0;
-            }
-        }
         
         const b = getFromPool('bullets');
         b.x = x;
@@ -1822,6 +1815,15 @@ window.onload = function() {
             let damage = playerStats.baseDamage;
             const special = { spectral: playerEffects.spectralCannon };
             
+            // CORREÇÃO 1: Lógica da "Tormenta de Mísseis" movida para cá
+            if (playerEffects.missileStorm.active) {
+                playerEffects.missileStorm.shotCount++;
+                if (playerEffects.missileStorm.shotCount >= playerEffects.missileStorm.shotsNeeded) {
+                    launchMissileSalvo();
+                    playerEffects.missileStorm.shotCount = 0;
+                }
+            }
+
             if (playerEffects.bifurcatedShot.active) {
                 const numShots = playerEffects.bifurcatedShot.level + 1;
                 const totalAngle = 0.25 * numShots;
@@ -2284,6 +2286,22 @@ window.onload = function() {
         setTimeout(() => { gameOverScreen.classList.remove('hidden'); }, 1000); 
     }
 
+    // CORREÇÃO 2: Função dedicada para resetar os efeitos de forma segura
+    function resetPlayerEffects() {
+        // Itera sobre as chaves do objeto de efeitos inicial
+        for (const key in initialPlayerEffects) {
+            const initialValue = initialPlayerEffects[key];
+            // Se o valor for um objeto (e não nulo), faz uma cópia profunda para evitar referências compartilhadas
+            if (typeof initialValue === 'object' && initialValue !== null) {
+                playerEffects[key] = JSON.parse(JSON.stringify(initialValue));
+            } else {
+                // Para valores primitivos, a atribuição direta é segura
+                playerEffects[key] = initialValue;
+            }
+        }
+    }
+
+
     function restartGame() {
         cancelAnimationFrame(animationFrameId);
         gameOverScreen.classList.add('hidden');
@@ -2312,7 +2330,9 @@ window.onload = function() {
         gameState.damageDealt = 0;
         boss = null;
         playerStats = { ...initialPlayerStats };
-        playerEffects = JSON.parse(JSON.stringify(initialPlayerEffects));
+
+        // CORREÇÃO 2: Usa a nova função de reset seguro
+        resetPlayerEffects();
         
         // Limpa arrays ativos
         asteroids.length = 0; bullets.length = 0; particles.length = 0;
