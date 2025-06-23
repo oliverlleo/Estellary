@@ -329,6 +329,7 @@ body {
     animation: pulse-red 1.5s infinite;
 }
 
+/* --- INÍCIO DA CORREÇÃO DE PERFORMANCE --- */
 #criticalHealthVignette {
     position: fixed;
     top: 0;
@@ -336,14 +337,25 @@ body {
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 1400; /* Abaixo do damage flash, mas acima do resto */
-    box-shadow: inset 0 0 0 0 rgba(200, 0, 0, 0);
-    transition: box-shadow 0.5s ease-out;
+    z-index: 1400; 
+    /* Efeito de vinheta criado com um gradiente radial, que é estático e barato de renderizar */
+    background: radial-gradient(ellipse at center, rgba(255,0,0,0) 50%, rgba(200,0,0,0.6) 100%);
+    /* Começa invisível */
+    opacity: 0;
 }
 
 #criticalHealthVignette.active {
-    animation: pulse-vignette 2s infinite;
+    /* Ativa uma animação que mexe apenas na opacidade, que é muito mais performática */
+    animation: pulse-opacity-vignette 2s infinite ease-in-out;
 }
+
+/* Animação que apenas altera a opacidade, evitando o custo de animar o box-shadow */
+@keyframes pulse-opacity-vignette {
+    0% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+    100% { opacity: 0.3; }
+}
+/* --- FIM DA CORREÇÃO DE PERFORMANCE --- */
 
 
 #levelUpScreen {
@@ -911,13 +923,6 @@ body {
     50% { box-shadow: inset 0 0 25px 15px rgba(255, 60, 60, 1); }
     100% { box-shadow: inset 0 0 25px 15px rgba(255, 0, 0, 0.7); }
 }
-
-@keyframes pulse-vignette {
-    0% { box-shadow: inset 0 0 100px 50px rgba(200, 0, 0, 0.2); }
-    50% { box-shadow: inset 0 0 120px 60px rgba(255, 0, 0, 0.4); }
-    100% { box-shadow: inset 0 0 100px 50px rgba(200, 0, 0, 0.2); }
-}
-
 
 @keyframes pulse {
     0%, 100% { 
